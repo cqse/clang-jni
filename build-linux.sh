@@ -48,14 +48,24 @@ echo "Preparing JNI code generated via SWIG"
 echo "Integrating own Java JNI code"
 (
     # generate headers for JNI code
-    (cd src && javac -h ../../llvm-project/clang/include/clang-c -cp .:../generated eu/cqse/clang/ClangBinding.java)
+    (cd src && javac -h ../../llvm-project/clang/tools/libclang -cp .:../generated eu/cqse/clang/ClangBinding.java)
 
     # copy our own native code 
-    cp native/eu_cqse_clang_ClangBinding.cpp ../llvm-project/clang/include/clang-c
+    cp native/eu_cqse_clang_ClangBinding.cpp ../llvm-project/clang/tools/libclang
+    mv ../llvm-project/clang/include/clang-c/eu_cqse_clang_ClangBinding.h ../llvm-project/clang/tools/libclang
+    mv ../llvm-project/clang/include/clang-c/Index_wrap.cxx ../llvm-project/clang/tools/libclang
     
     # make generated JNI methods available in list of exported functions
-    cd ../llvm-project/clang/include/clang-c
-    grep -o 'Java_eu_cqse_clang_ClangBinding[^\(]*' eu_cqse_clang_ClangBinding.h >> ../../tools/libclang/libclang.exports
+    cd ../llvm-project/clang/tools/libclang
+    grep -o 'Java_eu_cqse_clang_ClangBinding[^\(]*' eu_cqse_clang_ClangBinding.h >> libclang.exports
+
+    # Monkey patching our build steps into existing cmake files
+    sed -i -e '/Indexing.cpp/a   eu_cqse_clang_ClangBinding.cpp' CMakeLists.txt
+    sed -i -e '/Indexing.cpp/a   Index_wrap.cxx' CMakeLists.txt
+    sed -i -e '/Index_Internal.h/a   Index_wrap.cxx' CMakeLists.txt
+    sed -i -e '/set.LIBS/i   include_directories(/usr/lib/jvm/java-8-openjdk-amd64/include)' CMakeLists.txt
+    sed -i -e '/set.LIBS/i   include_directories(/usr/lib/jvm/java-8-openjdk-amd64/include/linux)' CMakeLists.txt
+    sed -i -e '/set.LIBS/i   include_directories(../../include/clang-c)' CMakeLists.txt
 )
 
 # run cmake
@@ -69,5 +79,5 @@ echo "Integrating own Java JNI code"
 # run make
 (
     cd ../llvm-project/build
-    # make -j$CORES
+    make -j$CORES
 )

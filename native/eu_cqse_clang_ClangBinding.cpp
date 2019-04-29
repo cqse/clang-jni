@@ -1,4 +1,4 @@
-#include "eu_cqse_clangBinding_ClangBindingUtils.h"
+#include "eu_cqse_clang_ClangBinding.h"
 #include "Index.h"
 #include <cstdlib>
 #include <cstring>
@@ -52,7 +52,7 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_getSpellingLocationPro
     clang_getSpellingLocation(location, &file, &line, &column, &offset);
     
     jclass result_class = env->FindClass("eu/cqse/clang/ClangSpellingLocationProperties");
-    jmethodID constructor = env->GetMethodID(env, result_class, "<init>", "(Ljava/lang/String;III)V");
+    jmethodID constructor = env->GetMethodID(result_class, "<init>", "(Ljava/lang/String;III)V");
 
     CXString fileName = clang_getFileName (file);
     jstring javaFileName = env->NewStringUTF(clang_getCString(fileName));
@@ -71,7 +71,7 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_getExpansionLocationPr
     clang_getExpansionLocation(location, &file, &line, &column, &offset);
     
     jclass result_class = env->FindClass("eu/cqse/clang/ClangSpellingLocationProperties");
-    jmethodID constructor = env->GetMethodID(env, result_class, "<init>", "(Ljava/lang/String;III)V");
+    jmethodID constructor = env->GetMethodID(result_class, "<init>", "(Ljava/lang/String;III)V");
 
     CXString fileName = clang_getFileName (file);
     jstring javaFileName = env->NewStringUTF(clang_getCString(fileName));
