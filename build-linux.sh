@@ -52,7 +52,7 @@ echo "Integrating own Java JNI code"
 
     # copy our own native code 
     cp native/eu_cqse_clang_ClangBinding.cpp ../llvm-project/clang/tools/libclang
-    mv ../llvm-project/clang/include/clang-c/eu_cqse_clang_ClangBinding.h ../llvm-project/clang/tools/libclang
+    mv ../llvm-project/clang/tools/libclang/eu_cqse_clang_ClangBinding.h ../llvm-project/clang/tools/libclang
     mv ../llvm-project/clang/include/clang-c/Index_wrap.cxx ../llvm-project/clang/tools/libclang
     
     # make generated JNI methods available in list of exported functions
@@ -68,7 +68,7 @@ echo "Integrating own Java JNI code"
     sed -i -e '/set.LIBS/i   include_directories(../../include/clang-c)' CMakeLists.txt
 )
 
-# run cmake
+echo "Running cmake"
 (
     cd ../llvm-project
     mkdir -p build
@@ -76,7 +76,7 @@ echo "Integrating own Java JNI code"
     cmake -DLLVM_ENABLE_PROJECTS=clang -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -G "Unix Makefiles" ../llvm
 )
 
-# run make
+echo "running make"
 (
     cd ../llvm-project/build
     make -j$CORES
