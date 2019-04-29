@@ -14,11 +14,11 @@ LLVM_TAG=llvmorg-8.0.0
 CORES=16
 
 
-# Install required tools
+echo "Installing required tools"
 sudo apt update
 sudo apt install -y g++ cmake openjdk-8-jdk-headless swig
 
-# clone LLVM into sibling directory
+echo "Cloning LLVM into sibling directory"
 (
     cd ..
     git clone https://github.com/llvm/llvm-project.git
@@ -26,7 +26,7 @@ sudo apt install -y g++ cmake openjdk-8-jdk-headless swig
     git checkout $LLVM_TAG
 )
 
-# prepare JNI code generated via SWIG
+echo "Preparing JNI code generated via SWIG"
 (
     GENERATED_DIR=generated/eu/cqse/clang
     mkdir -p $GENERATED_DIR
@@ -45,17 +45,17 @@ sudo apt install -y g++ cmake openjdk-8-jdk-headless swig
     grep -o 'Java.*clangJNI[^\(]*' Index_wrap.cxx >> ../../tools/libclang/libclang.exports
 )
 
-# Integrate own Java JNI code
+echo "Integrating own Java JNI code"
 (
     # generate headers for JNI code
-    cd src && javac -h ../../llvm-project/clang/include/clang-c -cp .:../generated eu/cqse/clang/ClangBinding.java
+    (cd src && javac -h ../../llvm-project/clang/include/clang-c -cp .:../generated eu/cqse/clang/ClangBinding.java)
 
     # copy our own native code 
     cp native/eu_cqse_clang_ClangBinding.cpp ../llvm-project/clang/include/clang-c
     
     # make generated JNI methods available in list of exported functions
     cd ../llvm-project/clang/include/clang-c
-    grep -o 'Java.*clangJNI[^\(]*' eu_cqse_clang_ClangBinding.h >> ../../tools/libclang/libclang.exports
+    grep -o 'Java_eu_cqse_clang_ClangBinding[^\(]*' eu_cqse_clang_ClangBinding.h >> ../../tools/libclang/libclang.exports
 )
 
 # run cmake
@@ -63,11 +63,11 @@ sudo apt install -y g++ cmake openjdk-8-jdk-headless swig
     cd ../llvm-project
     mkdir -p build
     cd build
-    cmake -DLLVM_ENABLE_PROJECTS=clang -DMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -G "Unix Makefiles" ../llvm
+    cmake -DLLVM_ENABLE_PROJECTS=clang -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -G "Unix Makefiles" ../llvm
 )
 
 # run make
 (
-    cd ../llbm-project/build
-    make -j$CORES
+    cd ../llvm-project/build
+    # make -j$CORES
 )
