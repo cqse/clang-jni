@@ -52,7 +52,6 @@ echo "Integrating own Java JNI code"
 
     # copy our own native code 
     cp native/eu_cqse_clang_ClangBinding.cpp ../llvm-project/clang/tools/libclang
-    mv ../llvm-project/clang/tools/libclang/eu_cqse_clang_ClangBinding.h ../llvm-project/clang/tools/libclang
     mv ../llvm-project/clang/include/clang-c/Index_wrap.cxx ../llvm-project/clang/tools/libclang
     
     # make generated JNI methods available in list of exported functions
