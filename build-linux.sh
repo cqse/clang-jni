@@ -28,7 +28,8 @@ sudo apt install -y g++ cmake openjdk-8-jdk-headless swig
 
 # prepare JNI code generated via SWIG
 (
-    mkdir -p generated
+    GENERATED_DIR=generated/eu/cqse/clang
+    mkdir -p $GENERATED_DIR
     cd ../llvm-project/clang/include/clang-c
 
     # we need a version of Index.h without time.h, as swig stumbles there
@@ -38,7 +39,7 @@ sudo apt install -y g++ cmake openjdk-8-jdk-headless swig
     cpp -H -E Index-without-time.h -I.. -o Index.i -D'__attribute__(pa)='
 
     # run swig to generate the JNI binding
-    swig -module clang -c++ -java -package eu.cqse.clang -outdir ../../../../clang-jni/generated Index.i
+    swig -module clang -c++ -java -package eu.cqse.clang -outdir ../../../../clang-jni/$GENERATED_DIR Index.i
 
     # make generated JNI methods available in list of exported functions
     grep -o 'Java.*clangJNI[^\(]*' Index_wrap.cxx >> ../../tools/libclang/libclang.exports
@@ -46,6 +47,15 @@ sudo apt install -y g++ cmake openjdk-8-jdk-headless swig
 
 # Integrate own Java JNI code
 (
+    # generate headers for JNI code
+    cd src && javac -h ../../llvm-project/clang/include/clang-c -cp .:../generated eu/cqse/clang/ClangBinding.java
+
+    # copy our own native code 
+    cp native/eu_cqse_clang_ClangBinding.cpp ../llvm-project/clang/include/clang-c
+    
+    # make generated JNI methods available in list of exported functions
+    cd ../llvm-project/clang/include/clang-c
+    grep -o 'Java.*clangJNI[^\(]*' eu_cqse_clang_ClangBinding.h >> ../../tools/libclang/libclang.exports
 )
 
 # run cmake
@@ -53,8 +63,7 @@ sudo apt install -y g++ cmake openjdk-8-jdk-headless swig
     cd ../llvm-project
     mkdir -p build
     cd build
-    # TODO: more settings
-    cmake -DLLVM_ENABLE_PROJECTS=clang -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles" ../llvm
+    cmake -DLLVM_ENABLE_PROJECTS=clang -DMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -G "Unix Makefiles" ../llvm
 )
 
 # run make
