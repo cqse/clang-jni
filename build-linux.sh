@@ -40,7 +40,10 @@ echo "Preparing JNI code generated via SWIG"
 
     # run swig to generate the JNI binding
     swig -module clang -c++ -java -package eu.cqse.clang -outdir ../../../../clang-jni/$GENERATED_DIR Index.i
+
+    # we need to rename and patch the generated file to work with the build
     mv Index_wrap.cxx Index_wrap.cpp
+    sed -i -e '/#ifndef SWIGJAVA/a #include "Index.h"' Index_wrap.cpp
 
     # make generated JNI methods available in list of exported functions
     grep -o 'Java.*clangJNI[^\(]*' Index_wrap.cpp >> ../../tools/libclang/libclang.exports
