@@ -40,9 +40,10 @@ echo "Preparing JNI code generated via SWIG"
 
     # run swig to generate the JNI binding
     swig -module clang -c++ -java -package eu.cqse.clang -outdir ../../../../clang-jni/$GENERATED_DIR Index.i
+    mv Index_wrap.cxx Index_wrap.cpp
 
     # make generated JNI methods available in list of exported functions
-    grep -o 'Java.*clangJNI[^\(]*' Index_wrap.cxx >> ../../tools/libclang/libclang.exports
+    grep -o 'Java.*clangJNI[^\(]*' Index_wrap.cpp >> ../../tools/libclang/libclang.exports
 )
 
 echo "Integrating own Java JNI code"
@@ -52,19 +53,19 @@ echo "Integrating own Java JNI code"
 
     # copy our own native code 
     cp native/eu_cqse_clang_ClangBinding.cpp ../llvm-project/clang/tools/libclang
-    mv ../llvm-project/clang/include/clang-c/Index_wrap.cxx ../llvm-project/clang/tools/libclang
+    mv ../llvm-project/clang/include/clang-c/Index_wrap.cpp ../llvm-project/clang/tools/libclang
     
     # make generated JNI methods available in list of exported functions
     cd ../llvm-project/clang/tools/libclang
     grep -o 'Java_eu_cqse_clang_ClangBinding[^\(]*' eu_cqse_clang_ClangBinding.h >> libclang.exports
 
     # Monkey patching our build steps into existing cmake files
-    sed -i -e '/Indexing.cpp/a   eu_cqse_clang_ClangBinding.cpp' CMakeLists.txt
-    sed -i -e '/Indexing.cpp/a   Index_wrap.cxx' CMakeLists.txt
-    sed -i -e '/Index_Internal.h/a   Index_wrap.cxx' CMakeLists.txt
-    sed -i -e '/set.LIBS/i   include_directories(/usr/lib/jvm/java-8-openjdk-amd64/include)' CMakeLists.txt
-    sed -i -e '/set.LIBS/i   include_directories(/usr/lib/jvm/java-8-openjdk-amd64/include/linux)' CMakeLists.txt
-    sed -i -e '/set.LIBS/i   include_directories(../../include/clang-c)' CMakeLists.txt
+    sed -i -e '/Indexing.cpp/a eu_cqse_clang_ClangBinding.cpp' CMakeLists.txt
+    sed -i -e '/Indexing.cpp/a Index_wrap.cpp' CMakeLists.txt
+    sed -i -e '/Index_Internal.h/a eu_cqse_clang_ClangBinding.h' CMakeLists.txt
+    sed -i -e '/set.LIBS/i include_directories(/usr/lib/jvm/java-8-openjdk-amd64/include)' CMakeLists.txt
+    sed -i -e '/set.LIBS/i include_directories(/usr/lib/jvm/java-8-openjdk-amd64/include/linux)' CMakeLists.txt
+    sed -i -e '/set.LIBS/i include_directories(../../include/clang-c)' CMakeLists.txt
 )
 
 echo "Running cmake"
