@@ -9,7 +9,7 @@ public class ClangBinding {
 	/** Ensures that the native libraries of the Clang JNI binding are loaded. */
 	public static void ensureLibraryLoaded() {
 		// TODO
-		File libraryFile = new File("../build/lib/libclang.so");
+		File libraryFile = new File("libs/libclang.so");
 		System.load(libraryFile.getAbsolutePath());
 	}
 

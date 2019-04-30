@@ -10,7 +10,7 @@ struct ClangBindingVisitorParameter {
     jobject java_visitor;
 };
 
-JNIEXPORT void JNICALL Java_eu_cqse_clangBinding_ClangBindingUtils_visitChildrenImpl
+JNIEXPORT void JNICALL Java_eu_cqse_clangBinding_ClangBinding_visitChildrenImpl
   (JNIEnv * env, jclass cls, jlong cursor_pointer, jobject java_visitor) {
 
     CXCursor root_cursor = **(CXCursor **)&cursor_pointer;
