@@ -1,0 +1,1 @@
+This is the directory where the native libraries should be placed into.

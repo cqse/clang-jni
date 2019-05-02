@@ -58,13 +58,13 @@ public class Main {
 			for (int i = 0; i < level; i++) {
 				System.out.print("    ");
 			}
-			apply(cursor, parent);
+			print(cursor);
 
 			ClangBinding.visitChildren(cursor, new PrintVisitor(translationUnit, level + 1));
 			return CXChildVisitResult.CXChildVisit_Continue;
 		}
 
-		public String apply(CXCursor current, CXCursor parent) {
+		public void print(CXCursor current) {
 			CXSourceLocation location = clang.clang_getCursorLocation(current);
 
 			long line = ClangBinding.getSpellingLocationProperties(location).getLine();
@@ -79,8 +79,8 @@ public class Main {
 			if (token != null) {
 				tokenSpelling = clang.clang_getCString(clang.clang_getTokenSpelling(translationUnit, token));
 			}
-			return line + " name:" + name + " kind:" + kind + " type:" + type + "/" + typeKind + " spelling:" + spelling
-					+ " tokenSpelling: " + tokenSpelling;
+			System.out.println(line + " name:" + name + " kind:" + kind + " type:" + type + "/" + typeKind
+					+ " spelling:" + spelling + " tokenSpelling: " + tokenSpelling);
 		}
 
 	}
