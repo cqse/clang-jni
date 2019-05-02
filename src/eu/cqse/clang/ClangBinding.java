@@ -1,16 +1,11 @@
 
 package eu.cqse.clang;
 
-import java.io.File;
-
 /** Main entry point for the clang JNI binding. */
 public class ClangBinding {
 
-	/** Ensures that the native libraries of the Clang JNI binding are loaded. */
-	public static void ensureLibraryLoaded() {
-		// TODO
-		File libraryFile = new File("libs/libclang.so");
-		System.load(libraryFile.getAbsolutePath());
+	static {
+		ClangJniLoader.ensureLoaded();
 	}
 
 	/** Traverses all children of the given cursor with the given visitor. */

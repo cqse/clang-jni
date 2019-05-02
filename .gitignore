@@ -2,3 +2,5 @@
 /generated/*
 *~
 libs/*
+build
+clang-jni.jar

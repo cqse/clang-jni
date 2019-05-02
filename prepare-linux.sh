@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# This is the main linux script for building the JNI native part for
-# the clang bindings. This is intended to be run on a fresh Ubunutu
-# installation (last tested with 18.04), such as a cloud
+# This is the main linux script for preparing the build of the JNI
+# native part for the clang bindings. This is intended to be run on a
+# fresh Ubunutu installation (last tested with 18.04), such as a cloud
 # machine. Please read the lines/instructions carefully, before
 # executing the script. The script should be executed from the main
 # directory of the git and will clone LLVM besides it.

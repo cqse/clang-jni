@@ -14,7 +14,7 @@ public class Main {
 			return;
 		}
 
-		ClangBinding.ensureLibraryLoaded();
+		ClangJniLoader.ensureLoaded();
 
 		SWIGTYPE_p_void index = clang.clang_createIndex(0, 0);
 		try {
@@ -32,6 +32,7 @@ public class Main {
 				} finally {
 					clang.clang_disposeTranslationUnit(translationUnit);
 				}
+				System.out.println("===== DONE =====");
 			}
 		} finally {
 			clang.clang_disposeIndex(index);

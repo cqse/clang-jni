@@ -32,7 +32,7 @@ echo "running make"
 
 echo "Copying resulting library"
 (
-    cp ../llvm-project/build/lib/libclang.so libs/
+    cp ../llvm-project/build/lib/libclang.so libs/libclang-linux.so
 )
 
 echo "done"
