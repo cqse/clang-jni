@@ -9,7 +9,7 @@ LINUX_LIB=libclang-linux.so
 MAC_LIB=libclang-mac.so
 WIN_LIB=libclang-win.dll
 
-NATIVE_LIBS="$LINUX_LIB" # TODO: $MAC_LIB $WIN_LIB"
+NATIVE_LIBS="$LINUX_LIB $MAC_LIB $WIN_LIB"
 
 for lib in $NATIVE_LIBS
 do

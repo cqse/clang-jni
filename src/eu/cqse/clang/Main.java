@@ -38,16 +38,21 @@ public class Main {
 		headerFile.setContents(HEADER);
 		headerFile.setLength(HEADER.length());
 
-		CXUnsavedFile[] files = new CXUnsavedFile[] { codeFile, headerFile };
+		CXUnsavedFile[] files = new CXUnsavedFile[] { codeFile };
 
 		SWIGTYPE_p_void index = Clang.clang_createIndex(0, 0);
 		try {
 			SWIGTYPE_p_CXTranslationUnitImpl translationUnit = Clang.clang_parseTranslationUnit(index, "code.cpp", null,
 					0, files, files.length, 0);
+//			SWIGTYPE_p_CXTranslationUnitImpl translationUnit = Clang.clang_parseTranslationUnit(index,
+//					"native/eu_cqse_clang_ClangBinding.cpp", null, 0, new CXUnsavedFile[0], 0, 0);
 			try {
 				CXCursor cursor = Clang.clang_getTranslationUnitCursor(translationUnit);
+
 				try {
+					System.err.println("pre-visit");
 					ClangBinding.visitChildren(cursor, new PrintVisitor(translationUnit));
+					System.err.println("post-visit");
 				} finally {
 					cursor.delete();
 				}
@@ -75,7 +80,6 @@ public class Main {
 
 		@Override
 		public CXChildVisitResult visit(CXCursor cursor, CXCursor parent) {
-
 			for (int i = 0; i < level; i++) {
 				System.out.print("    ");
 			}

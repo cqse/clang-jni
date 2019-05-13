@@ -1,4 +1,4 @@
-%module(directors="1") Clang
+%module Clang
 %{
 #include "Index.h"
 %}
