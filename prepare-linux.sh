@@ -26,23 +26,15 @@ echo "Preparing JNI code generated via SWIG"
 (
     GENERATED_DIR=generated/eu/cqse/clang
     mkdir -p $GENERATED_DIR
+
+    cp native/clang.i ../llvm-project/clang/include/clang-c
     cd ../llvm-project/clang/include/clang-c
 
-    # we need a version of Index.h without time.h, as swig stumbles there
-    cat Index.h | grep -v '<time.h>' > Index-without-time.h
-
-    # prepare preprocessed header
-    cpp -H -E Index-without-time.h -I.. -o Index.i -D'__attribute__(pa)='
-
     # run swig to generate the JNI binding
-    swig -module clang -c++ -java -package eu.cqse.clang -outdir ../../../../clang-jni/$GENERATED_DIR Index.i
-
-    # we need to rename and patch the generated file to work with the build
-    mv Index_wrap.cxx Index_wrap.cpp
-    sed -i -e '/#ifndef SWIGJAVA/a #include "Index.h"' Index_wrap.cpp
+    swig -c++ -java -package eu.cqse.clang -outdir ../../../../clang-jni/$GENERATED_DIR -o clang-jni.cpp -v -Wall clang.i
 
     # make generated JNI methods available in list of exported functions
-    grep -o 'Java.*clangJNI[^\(]*' Index_wrap.cpp >> ../../tools/libclang/libclang.exports
+    grep -o 'Java.*clangJNI[^\(]*' clang-jni.cpp >> ../../tools/libclang/libclang.exports
 )
 
 echo "Integrating own Java JNI code"
@@ -60,7 +52,7 @@ echo "Integrating own Java JNI code"
 
     # Monkey patching our build steps into existing cmake files
     sed -i -e '/Indexing.cpp/a eu_cqse_clang_ClangBinding.cpp' CMakeLists.txt
-    sed -i -e '/Indexing.cpp/a Index_wrap.cpp' CMakeLists.txt
+    sed -i -e '/Indexing.cpp/a clang-jni.cpp' CMakeLists.txt
     sed -i -e '/Index_Internal.h/a eu_cqse_clang_ClangBinding.h' CMakeLists.txt
     sed -i -e '/set.LIBS/i include_directories(../../include/clang-c)' CMakeLists.txt
 )
