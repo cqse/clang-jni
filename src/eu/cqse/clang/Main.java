@@ -1,41 +1,61 @@
 package eu.cqse.clang;
 
-import java.io.File;
-
 /**
  * Simple main program that can be used to test the clang binding on various
  * machines.
  */
 public class Main {
 
-	public static void main(String[] args) {
-		if (args.length == 0) {
-			System.err.println("Missing arguments! Please pass names of C/C++ files.");
-			return;
-		}
+	private static final String CODE = "" + //
+			"#include \"my-header.h\"\n" + //
+			"\n" + //
+			"int Foo::add (int a, int b) {\n" + //
+			"  return a+b; \n" + //
+			"}\n" + //
+			"\n";
 
+	private static final String HEADER = "" + //
+			"#ifndef MY_HEADER\n" + //
+			"#define MY_HEADER\n" + //
+			"\n" + //
+			"class Foo {\n" + //
+			"public: \n" + //
+			"  int add (int a, int b);\n" + //
+			"};\n" + //
+			"\n" + //
+			"#endif // MY_HEADER\n";
+
+	public static void main(String[] args) {
 		ClangJniLoader.ensureLoaded();
 
-		SWIGTYPE_p_void index = clang.clang_createIndex(0, 0);
+		CXUnsavedFile codeFile = new CXUnsavedFile();
+		codeFile.setFilename("code.cpp");
+		codeFile.setContents(CODE);
+		codeFile.setLength(CODE.length());
+
+		CXUnsavedFile headerFile = new CXUnsavedFile();
+		headerFile.setFilename("my-header.h");
+		headerFile.setContents(HEADER);
+		headerFile.setLength(HEADER.length());
+
+		CXUnsavedFile[] files = new CXUnsavedFile[] { codeFile, headerFile };
+
+		SWIGTYPE_p_void index = Clang.clang_createIndex(0, 0);
 		try {
-			for (String arg : args) {
-				System.out.println("===== " + arg + " =====");
-				SWIGTYPE_p_CXTranslationUnitImpl translationUnit = clang.clang_parseTranslationUnit(index,
-						new File(arg).getAbsolutePath(), null, 0, null, 0, 0);
+			SWIGTYPE_p_CXTranslationUnitImpl translationUnit = Clang.clang_parseTranslationUnit(index, "code.cpp", null,
+					0, files, files.length, 0);
+			try {
+				CXCursor cursor = Clang.clang_getTranslationUnitCursor(translationUnit);
 				try {
-					CXCursor cursor = clang.clang_getTranslationUnitCursor(translationUnit);
-					try {
-						ClangBinding.visitChildren(cursor, new PrintVisitor(translationUnit));
-					} finally {
-						cursor.delete();
-					}
+					ClangBinding.visitChildren(cursor, new PrintVisitor(translationUnit));
 				} finally {
-					clang.clang_disposeTranslationUnit(translationUnit);
+					cursor.delete();
 				}
-				System.out.println("===== DONE =====");
+			} finally {
+				Clang.clang_disposeTranslationUnit(translationUnit);
 			}
 		} finally {
-			clang.clang_disposeIndex(index);
+			Clang.clang_disposeIndex(index);
 		}
 	}
 
@@ -66,19 +86,19 @@ public class Main {
 		}
 
 		public void print(CXCursor current) {
-			CXSourceLocation location = clang.clang_getCursorLocation(current);
+			CXSourceLocation location = Clang.clang_getCursorLocation(current);
 
 			long line = ClangBinding.getSpellingLocationProperties(location).getLine();
 
-			String name = clang.clang_getCString(clang.clang_getCursorDisplayName(current));
-			String kind = clang.clang_getCursorKind(current).toString();
-			String typeKind = clang.clang_getCursorType(current).getKind().toString();
-			String type = clang.clang_getCString(clang.clang_getTypeSpelling(clang.clang_getCursorType(current)));
-			String spelling = clang.clang_getCString(clang.clang_getCursorSpelling(current));
-			CXToken token = clang.clang_getToken(translationUnit, clang.clang_getCursorLocation(current));
+			String name = Clang.clang_getCString(Clang.clang_getCursorDisplayName(current));
+			String kind = Clang.clang_getCursorKind(current).toString();
+			String typeKind = Clang.clang_getCursorType(current).getKind().toString();
+			String type = Clang.clang_getCString(Clang.clang_getTypeSpelling(Clang.clang_getCursorType(current)));
+			String spelling = Clang.clang_getCString(Clang.clang_getCursorSpelling(current));
+			CXToken token = Clang.clang_getToken(translationUnit, Clang.clang_getCursorLocation(current));
 			String tokenSpelling = "token is null";
 			if (token != null) {
-				tokenSpelling = clang.clang_getCString(clang.clang_getTokenSpelling(translationUnit, token));
+				tokenSpelling = Clang.clang_getCString(Clang.clang_getTokenSpelling(translationUnit, token));
 			}
 			System.out.println(line + " name:" + name + " kind:" + kind + " type:" + type + "/" + typeKind
 					+ " spelling:" + spelling + " tokenSpelling: " + tokenSpelling);

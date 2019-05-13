@@ -34,7 +34,7 @@ echo "Preparing JNI code generated via SWIG"
     swig -c++ -java -package eu.cqse.clang -outdir ../../../../clang-jni/$GENERATED_DIR -o clang-jni.cpp -v -Wall clang.i
 
     # make generated JNI methods available in list of exported functions
-    grep -o 'Java.*clangJNI[^\(]*' clang-jni.cpp >> ../../tools/libclang/libclang.exports
+    grep -o 'Java.*ClangJNI[^\(]*' clang-jni.cpp >> ../../tools/libclang/libclang.exports
 )
 
 echo "Integrating own Java JNI code"
