@@ -14,8 +14,8 @@ run SWIG to generate the JNI wrapper, and create a package
 clang-build-package.tar.gz at the base directory.
 
 Copy this package to a windows machine and a mac, follow the
-instructions in `build-linux.sh`, `build-windows.bat` and
-`build-mac.sh`.
+instructions in `build-linux.sh`, `build-windows.md` and
+`build-mac.md`.
 
 Copy all the resulting libraries back to the linux machine and execute
 `build-java.sh`.
