@@ -16,4 +16,5 @@
 JAVA_ARRAYSOFCLASSES(CXUnsavedFile)
 %apply CXUnsavedFile[] { CXUnsavedFile *unsaved_files }
 
+%include "CXString.h"
 %include "Index.h"
