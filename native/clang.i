@@ -16,5 +16,9 @@
 JAVA_ARRAYSOFCLASSES(CXUnsavedFile)
 %apply CXUnsavedFile[] { CXUnsavedFile *unsaved_files }
 
+// we also need to expose putenv, so we can adjust the environment
+// (which Java can not out pf the box)
+int putenv(char *string);
+
 %include "CXString.h"
 %include "Index.h"
