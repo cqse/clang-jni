@@ -19,6 +19,9 @@ More info: https://clang.llvm.org/get_started.html
 
 - Create a new directory (e.g. c:\clang) and switch to it
 - Extract the mentioned package to this directory
+- Adjust the file `llvm-project/clang/tools/libclang/CMakeLists.txt` by inserting the following two lines (or similar) before the line starting with `set(LIBS`:
+    - `include_directories("c:/Program Files/Java/jdk-12.0.1/include")`
+    - `include_directories("c:/Program Files/Java/jdk-12.0.1/include/win32")`
 - `cd llvm-project`
 - `mkdir build`
 - `cd build`
