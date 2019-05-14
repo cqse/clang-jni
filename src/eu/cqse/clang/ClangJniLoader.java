@@ -25,6 +25,7 @@ public class ClangJniLoader {
 		if (loaded) {
 			return;
 		}
+		loaded = true;
 
 		String libraryName = determineLibraryName();
 
