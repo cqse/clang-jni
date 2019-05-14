@@ -1,5 +1,7 @@
 package eu.cqse.clang;
 
+import java.io.IOException;
+
 /**
  * Simple main program that can be used to test the clang binding on various
  * machines.
@@ -25,34 +27,35 @@ public class Main {
 			"\n" + //
 			"#endif // MY_HEADER\n";
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws IOException {
 		ClangJniLoader.ensureLoaded();
+		parseCode();
+	}
 
+	private static void parseCode() {
 		CXUnsavedFile codeFile = new CXUnsavedFile();
-		codeFile.setFilename("code.cpp");
+		codeFile.setFilename("/foo/code.cpp");
 		codeFile.setContents(CODE);
 		codeFile.setLength(CODE.length());
 
 		CXUnsavedFile headerFile = new CXUnsavedFile();
-		headerFile.setFilename("my-header.h");
+		headerFile.setFilename("/foo/my-header.h");
 		headerFile.setContents(HEADER);
 		headerFile.setLength(HEADER.length());
 
-		CXUnsavedFile[] files = new CXUnsavedFile[] { codeFile };
+		parseFiles(codeFile, headerFile);
+	}
 
+	/** Parses the first file, all remaining files are referenced headers. */
+	private static void parseFiles(CXUnsavedFile... files) {
 		SWIGTYPE_p_void index = Clang.clang_createIndex(0, 0);
 		try {
-			SWIGTYPE_p_CXTranslationUnitImpl translationUnit = Clang.clang_parseTranslationUnit(index, "code.cpp", null,
-					0, files, files.length, 0);
-//			SWIGTYPE_p_CXTranslationUnitImpl translationUnit = Clang.clang_parseTranslationUnit(index,
-//					"native/eu_cqse_clang_ClangBinding.cpp", null, 0, new CXUnsavedFile[0], 0, 0);
+			SWIGTYPE_p_CXTranslationUnitImpl translationUnit = Clang.clang_parseTranslationUnit(index,
+					files[0].getFilename(), null, 0, files, files.length, ClangJNI.CXTranslationUnit_KeepGoing_get());
 			try {
 				CXCursor cursor = Clang.clang_getTranslationUnitCursor(translationUnit);
-
 				try {
-					System.err.println("pre-visit");
 					ClangBinding.visitChildren(cursor, new PrintVisitor(translationUnit));
-					System.err.println("post-visit");
 				} finally {
 					cursor.delete();
 				}
@@ -92,8 +95,8 @@ public class Main {
 		public void print(CXCursor current) {
 			CXSourceLocation location = Clang.clang_getCursorLocation(current);
 
-			long line = ClangBinding.getSpellingLocationProperties(location).getLine();
-
+			ClangSpellingLocationProperties locationProperties = ClangBinding.getSpellingLocationProperties(location);
+			long line = locationProperties.getLine();
 			String name = Clang.clang_getCString(Clang.clang_getCursorDisplayName(current));
 			String kind = Clang.clang_getCursorKind(current).toString();
 			String typeKind = Clang.clang_getCursorType(current).getKind().toString();
@@ -104,8 +107,9 @@ public class Main {
 			if (token != null) {
 				tokenSpelling = Clang.clang_getCString(Clang.clang_getTokenSpelling(translationUnit, token));
 			}
-			System.out.println(line + " name:" + name + " kind:" + kind + " type:" + type + "/" + typeKind
-					+ " spelling:" + spelling + " tokenSpelling: " + tokenSpelling);
+
+			System.out.println(locationProperties.getFile() + ":" + line + " name:" + name + " kind:" + kind + " type:"
+					+ type + "/" + typeKind + " spelling:" + spelling + " tokenSpelling: " + tokenSpelling);
 		}
 
 	}
