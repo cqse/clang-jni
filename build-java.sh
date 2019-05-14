@@ -6,7 +6,7 @@
 # folder.
 
 LINUX_LIB=libclang-linux.so
-MAC_LIB=libclang-mac.so
+MAC_LIB=libclang-mac.dylib
 WIN_LIB=libclang-win.dll
 
 NATIVE_LIBS="$LINUX_LIB $MAC_LIB $WIN_LIB"

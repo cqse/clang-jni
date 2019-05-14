@@ -64,7 +64,7 @@ public class ClangJniLoader {
 		String operatingSystem = System.getProperty("os.name").toLowerCase();
 		String libraryName;
 		if (operatingSystem.contains("mac")) {
-			libraryName = "libclang-mac.so";
+			libraryName = "libclang-mac.dylib";
 		} else if (operatingSystem.contains("win")) {
 			libraryName = "libclang-win.dll";
 		} else if (operatingSystem.contains("linux")) {
