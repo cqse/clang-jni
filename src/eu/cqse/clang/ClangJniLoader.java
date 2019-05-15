@@ -57,7 +57,7 @@ public class ClangJniLoader {
 	/** We need to set some environment variables to make Clang work as expected. */
 	private static void prepareClangEnvironment() {
 		// we need to disable crash recovery, as it causes the JVM to crash on exit
-		Clang.putenv("LIBCLANG_DISABLE_CRASH_RECOVERY=1");
+		Clang.clang_putenv("LIBCLANG_DISABLE_CRASH_RECOVERY=1");
 	}
 
 	/** Determines the library name from the OS name. */
