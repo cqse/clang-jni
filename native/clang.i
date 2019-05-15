@@ -24,7 +24,7 @@ int clang_putenv(char *string);
         // we have to make a copy of the string as puten does not,
         // so freeing the string would affect the environment.
         // This causes a (very small) memory leak, so do not call in a loop
-        char *copy = malloc(strlen(string)+1);
+        char *copy = (char *)malloc(strlen(string)+1);
         strcpy(copy, string);
         return putenv (copy);
     }
