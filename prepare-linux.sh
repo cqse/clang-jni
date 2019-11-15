@@ -8,7 +8,7 @@
 # directory of the git and will clone LLVM besides it.
 
 # The tag used to compile from
-LLVM_TAG=llvmorg-8.0.0 
+LLVM_TAG=llvmorg-9.0.0 
 
 echo "Installing required tools"
 sudo apt update
