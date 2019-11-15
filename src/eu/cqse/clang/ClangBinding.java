@@ -1,6 +1,9 @@
 
 package eu.cqse.clang;
 
+import java.util.List;
+import java.util.Map;
+
 /** Main entry point for the clang JNI binding. */
 public class ClangBinding {
 
@@ -45,4 +48,15 @@ public class ClangBinding {
 			return delegate.visit(new CXCursor(cursorPtr, false), new CXCursor(parentPtr, false)).swigValue();
 		}
 	}
+
+	/** Lists all clang-tidy checks that are available in the library. */
+	public static native List<String> getAllClangTidyChecks();
+
+	/** Returns all options for all checks. */
+	public static native Map<String, String> getAllClangTidyCheckOptions();
+
+	/** Runs clang-tidy on the given files. */
+	public static native List<ClangTidyError> runClangTidy(List<ClangTidyFile> files, String checks,
+			Map<String, String> options);
+
 }
