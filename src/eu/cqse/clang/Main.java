@@ -1,6 +1,9 @@
 package eu.cqse.clang;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Simple main program that can be used to test the clang binding on various
@@ -12,6 +15,8 @@ public class Main {
 			"#include \"my-header.h\"\n" + //
 			"\n" + //
 			"int Foo::add (int a, int b) {\n" + //
+			"  for (int i = 0; i < 10; ++i);\n" + //
+			"    printf (\"Hello world\\n\");\n" + //
 			"  return a+b; \n" + //
 			"}\n" + //
 			"\n";
@@ -30,9 +35,12 @@ public class Main {
 	public static void main(String[] args) throws IOException {
 		ClangJniLoader.ensureLoaded();
 		parseCode();
+		runClangTidy();
 	}
 
 	private static void parseCode() {
+		System.out.println("## Test code parsing");
+
 		CXUnsavedFile codeFile = new CXUnsavedFile();
 		codeFile.setFilename("/foo/code.cpp");
 		codeFile.setContents(CODE);
@@ -112,6 +120,20 @@ public class Main {
 					+ type + "/" + typeKind + " spelling:" + spelling + " tokenSpelling: " + tokenSpelling);
 		}
 
+	}
+
+	private static void runClangTidy() {
+		System.out.println("\n## All clang-tidy checks found: ");
+		ClangBinding.getAllClangTidyChecks().stream().map(s -> "  - " + s).forEach(System.out::println);
+
+		System.out.println("\n## All clang-tidy options found: ");
+		ClangBinding.getAllClangTidyCheckOptions()
+				.forEach((key, value) -> System.out.println("  " + key + " -> " + value));
+
+		System.out.println("\n## clang-tidy test run: ");
+		List<ClangTidyFile> files = Arrays.asList(new ClangTidyFile("code.cc", CODE),
+				new ClangTidyFile("my-header.h", HEADER));
+		ClangBinding.runClangTidy(files, "*", ClangBinding.getAllClangTidyCheckOptions());
 	}
 
 }
