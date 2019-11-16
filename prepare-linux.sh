@@ -55,6 +55,7 @@ echo "Integrating own Java JNI code"
     sed -i -e '/Indexing.cpp/a clang-jni.cpp' CMakeLists.txt
     sed -i -e '/Index_Internal.h/a eu_cqse_clang_ClangBinding.h' CMakeLists.txt
     sed -i -e '/set.LIBS/i include_directories(../../include/clang-c)' CMakeLists.txt
+    sed -i -e '/if.ENABLE_SHARED/i target_compile_options (libclang PUBLIC "-fexceptions")' CMakeLists.txt
 )
 
 echo "Compiling documentation"

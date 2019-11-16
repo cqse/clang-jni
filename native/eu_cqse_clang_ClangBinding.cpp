@@ -141,6 +141,7 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidyInternal
 (JNIEnv *env, jclass cls, jobject files, jstring rules, jobject compilerSwitches,
  jobject checkOptionsKeys, jobject checkOptionsValues, jboolean codeIsCpp) {
 
+  try {
     jclass listClass = env->FindClass("java/util/List");
     jmethodID add = env->GetMethodID(listClass, "add", "(Ljava/lang/Object;)Z");
     jmethodID size = env->GetMethodID(listClass, "size", "()I");
@@ -235,4 +236,15 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidyInternal
     }
 
     return result;
+  } catch (const std::exception &e) {
+    jclass exceptionClass = env->FindClass("java/lang/RuntimeException");
+    std::string message = "Exception in clang-tidy integration: ";
+    message += e.what();
+    env->ThrowNew (exceptionClass, message.c_str());
+    return 0;
+  } catch (...) {
+    jclass exceptionClass = env->FindClass("java/lang/RuntimeException");
+    env->ThrowNew (exceptionClass, "Unknown low level exception in clang-tidy integration!");
+    return 0;
+  }
 }
