@@ -133,7 +133,8 @@ public class Main {
 		System.out.println("\n## clang-tidy test run: ");
 		List<ClangTidyFile> files = Arrays.asList(new ClangTidyFile("code.cc", CODE),
 				new ClangTidyFile("my-header.h", HEADER));
-		List<ClangTidyError> errors = ClangBinding.runClangTidy(files, "*", ClangBinding.getAllClangTidyCheckOptions());
+		List<ClangTidyError> errors = ClangBinding.runClangTidy(files, "*", Collections.emptyList(),
+				ClangBinding.getAllClangTidyCheckOptions(), true);
 		for (ClangTidyError error : errors) {
 			System.out.println(
 					error.getPath() + ":" + error.getOffset() + ":" + error.getCheckName() + ":" + error.getMessage());

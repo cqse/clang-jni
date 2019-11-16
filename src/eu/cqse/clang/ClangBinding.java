@@ -55,8 +55,19 @@ public class ClangBinding {
 	/** Returns all options for all checks. */
 	public static native Map<String, String> getAllClangTidyCheckOptions();
 
-	/** Runs clang-tidy on the given files. */
+	/**
+	 * Runs clang-tidy on the given files.
+	 * 
+	 * @param files            the files to analyze
+	 * @param checks           the semicolon separated list of checks being executed
+	 * @param compilerSwitches list of additional compiler switcher to pass on (may
+	 *                         be empty)
+	 * @param checkOptions     options for individual checks
+	 * @param codeIsCpp        if this is true, code is treated as C++ regardless of
+	 *                         file extension. This is especially useful for header
+	 *                         files.
+	 */
 	public static native List<ClangTidyError> runClangTidy(List<ClangTidyFile> files, String checks,
-			Map<String, String> options);
+			List<String> compilerSwitches, Map<String, String> checkOptions, boolean codeIsCpp);
 
 }
