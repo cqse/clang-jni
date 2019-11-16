@@ -63,6 +63,26 @@ echo "Compiling documentation"
     sphinx-build . ../docs-out   
 )
 
+echo "Patching raw_ostream to suppress unwanted output"
+(
+    cd ../llvm-project
+    cat <<EOF | patch -p1
+diff --git a/llvm/lib/Support/raw_ostream.cpp b/llvm/lib/Support/raw_ostream.cpp
+index 2baccaa0cbd..c43ce425fe0 100644
+--- a/llvm/lib/Support/raw_ostream.cpp
++++ b/llvm/lib/Support/raw_ostream.cpp
+@@ -853,7 +853,7 @@ raw_ostream &llvm::outs() {
+ raw_ostream &llvm::errs() {
+   // Set standard error to be unbuffered by default.
+   static raw_fd_ostream S(STDERR_FILENO, false, true);
+-  return S;
++  return llvm::nulls();
+ }
+ 
+ /// nulls() - This returns a reference to a raw_ostream which discards output.
+EOF
+)
+
 PACKAGE=clang-build-package.tar.gz
 echo "Packing for usage on other build machines"
 (

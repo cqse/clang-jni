@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "../../../clang/include/clang/Tooling/CompilationDatabase.h"
 #include "../../../clang-tools-extra/clang-tidy/ClangTidy.h"
 
 // Parameters with environment info passed into the visit method
@@ -126,33 +127,76 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_getAllClangTidyCheckOp
 JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidy
   (JNIEnv *env, jclass cls, jobject files, jstring rules, jobject parameters) {
 
+    jclass listClass = env->FindClass("java/util/List");
+    jmethodID add = env->GetMethodID(listClass, "add", "(Ljava/lang/Object;)Z");
+    jmethodID size = env->GetMethodID(listClass, "size", "()I");
+    jmethodID get = env->GetMethodID(listClass, "get", "(I)Ljava/lang/Object;");
+
     jclass arrayListClass = env->FindClass("java/util/ArrayList");
     jmethodID constructor = env->GetMethodID(arrayListClass, "<init>", "()V");
+
+    jclass fileClass = env->FindClass("eu/cqse/clang/ClangTidyFile");
+    jmethodID fileGetPath = env->GetMethodID(fileClass, "getPath", "()Ljava/lang/String;");
+    jmethodID fileGetContent = env->GetMethodID(fileClass, "getContent", "()Ljava/lang/String;");
+
+    jclass errorClass = env->FindClass("eu/cqse/clang/ClangTidyError");
+    jmethodID errorConstructor = env->GetMethodID
+      (errorClass, "<init>", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V");
+
     jobject result = env->NewObject (arrayListClass, constructor);
 
     clang::tidy::ClangTidyGlobalOptions globalOptions;
     clang::tidy::ClangTidyOptions options = clang::tidy::ClangTidyOptions::getDefaults();
-    options.Checks = "*"; // TODO: convert rules
+    const char *rulesString = env->GetStringUTFChars(rules, 0);
+    options.Checks = rulesString;
+    env->ReleaseStringUTFChars(rules, rulesString);
+
+    if (!options.ExtraArgsBefore.hasValue()) {
+      options.ExtraArgsBefore = std::vector<std::string>();
+    }
+    options.ExtraArgsBefore.getValue().push_back(std::string("-xc++")); // TODO: optional?
+
     // TODO: fill options.CheckOptions;
 
-    std::unique_ptr<clang::tidy::ClangTidyOptionsProvider> optionsProvider
-      (new clang::tidy::DefaultOptionsProvider(globalOptions, options));
-    clang::tidy::ClangTidyContext context (optionsProvider, true);
+    auto optionsProvider = llvm::make_unique<clang::tidy::DefaultOptionsProvider>(globalOptions, options);
+    clang::tidy::ClangTidyContext context (std::move(optionsProvider), true);
 
-    std::unique_ptr<tooling::FixedCompilationDatabase> compilations =
-      tooling::FixedCompilationDatabase::loadFromCommandLine(1, { "gcc" }, "My error");
+    int argc = 2;
+    const char *argv[] = { "gcc", "--", 0 }; // TODO
+    std::string errorMessage ("Error while parsing command line in ClangBinding"); 
+    auto compilations = clang::tooling::FixedCompilationDatabase::loadFromCommandLine
+      (argc, argv, errorMessage); 
 
-    ArrayRef<std::string> inputFiles; // TODO
-    llvm::IntrusiveRefCntPtr<llvm::vfs::OverlayFileSystem> baseFS; // TODO
+    std::vector<std::string> inputFiles;
+    std::vector<std::string> contents;
+    llvm::IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem> inMemoryFS(new llvm::vfs::InMemoryFileSystem());
+    time_t modificationTime = std::time(0);
+    
+    int filesSize = env->CallIntMethod (files, size);
+    for (int i = 0; i < filesSize; ++i) {
+      jobject file = env->CallObjectMethod (files, get, i);
+      jobject pathObject = env->CallObjectMethod (file, fileGetPath);
+      jobject contentObject = env->CallObjectMethod (file, fileGetContent);
+
+      const char *path = env->GetStringUTFChars((jstring) pathObject, 0);
+      const char *content = env->GetStringUTFChars((jstring) contentObject, 0);
+
+      inputFiles.push_back (std::string(path));
+      contents.push_back (std::string(content));
+
+      auto buffer = llvm::MemoryBuffer::getMemBuffer(contents.back().c_str());
+      inMemoryFS->addFile(inputFiles.back(), modificationTime, std::move(buffer)); 
+      
+      env->ReleaseStringUTFChars((jstring) pathObject, path);
+      env->ReleaseStringUTFChars((jstring) contentObject, content);
+    }
+
+    llvm::IntrusiveRefCntPtr<llvm::vfs::OverlayFileSystem> overlayFS
+      (new llvm::vfs::OverlayFileSystem(inMemoryFS));
 
     std::vector<clang::tidy::ClangTidyError> errors =
-      runClangTidy(context, *compilations, inputFiles, baseFS);
-
-    jmethodID add = env->GetMethodID(arrayListClass, "add", "(Ljava/lang/Object;)Z");
-    jclass errorClass = env->FindClass("eu/cqse/clang/ClangTidyError");
-    jmethodID errorConstructor = env->GetMethodID(errorClass, "<init>",
-
-
+      runClangTidy(context, *compilations, inputFiles, overlayFS);
+    
     for (std::vector<clang::tidy::ClangTidyError>::iterator i = errors.begin(),
 	   end = errors.end(); i != end; ++i) {
       jobject javaError = env->NewObject (errorClass, errorConstructor,
