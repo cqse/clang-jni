@@ -124,8 +124,22 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_getAllClangTidyCheckOp
     return result;
 }
 
-JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidy
-  (JNIEnv *env, jclass cls, jobject files, jstring rules, jobject parameters) {
+
+namespace jni_helper{
+
+  std::string obtainString (JNIEnv *env, jstring s) {
+      const char *temp = env->GetStringUTFChars(s, 0);
+      std::string result (temp);
+      env->ReleaseStringUTFChars(s, temp);
+      return result;
+  }
+
+  
+}
+
+JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidyInternal
+(JNIEnv *env, jclass cls, jobject files, jstring rules, jobject compilerSwitches,
+ jobject checkOptionsKeys, jobject checkOptionsValues, jboolean codeIsCpp) {
 
     jclass listClass = env->FindClass("java/util/List");
     jmethodID add = env->GetMethodID(listClass, "add", "(Ljava/lang/Object;)Z");
@@ -147,25 +161,43 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidy
 
     clang::tidy::ClangTidyGlobalOptions globalOptions;
     clang::tidy::ClangTidyOptions options = clang::tidy::ClangTidyOptions::getDefaults();
-    const char *rulesString = env->GetStringUTFChars(rules, 0);
-    options.Checks = rulesString;
-    env->ReleaseStringUTFChars(rules, rulesString);
+    options.Checks = jni_helper::obtainString(env, rules);
 
-    if (!options.ExtraArgsBefore.hasValue()) {
-      options.ExtraArgsBefore = std::vector<std::string>();
+    if (codeIsCpp) {
+      if (!options.ExtraArgsBefore.hasValue()) {
+	options.ExtraArgsBefore = std::vector<std::string>();
+      }
+      options.ExtraArgsBefore.getValue().push_back(std::string("-xc++")); 
     }
-    options.ExtraArgsBefore.getValue().push_back(std::string("-xc++")); // TODO: optional?
 
-    // TODO: fill options.CheckOptions;
+    // check options; we assume both options to have same size
+    int checkOptionsSize = env->CallIntMethod (checkOptionsKeys, size);
+    for (int i = 0; i < checkOptionsSize; ++i) {
+      jobject keyObject = env->CallObjectMethod (checkOptionsKeys, get, i);
+      jobject valueObject = env->CallObjectMethod (checkOptionsValues, get, i);
 
+      options.CheckOptions.insert ({ jni_helper::obtainString(env, (jstring)keyObject),
+	    jni_helper::obtainString(env, (jstring)valueObject)});
+    }
+    
     auto optionsProvider = llvm::make_unique<clang::tidy::DefaultOptionsProvider>(globalOptions, options);
     clang::tidy::ClangTidyContext context (std::move(optionsProvider), true);
 
-    int argc = 2;
-    const char *argv[] = { "gcc", "--", 0 }; // TODO
+    std::vector<const char *> argv;
+    std::vector<std::string> argvBuffer;
+    argv.push_back("my-compiler");
+    argv.push_back("--");
+    int compilerSwitchesSize = env->CallIntMethod (compilerSwitches, size);
+    for (int i = 0; i < compilerSwitchesSize; ++i) {
+      jobject compilerSwitch = env->CallObjectMethod (compilerSwitches, get, i);
+      argvBuffer.push_back(jni_helper::obtainString(env, (jstring)compilerSwitch));
+      argv.push_back (argvBuffer.back().c_str());
+    }
+    argv.push_back(0);
+    int argc = argv.size()-1;
     std::string errorMessage ("Error while parsing command line in ClangBinding"); 
     auto compilations = clang::tooling::FixedCompilationDatabase::loadFromCommandLine
-      (argc, argv, errorMessage); 
+      (argc, &argv[0], errorMessage); 
 
     std::vector<std::string> inputFiles;
     std::vector<std::string> contents;
@@ -175,20 +207,15 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidy
     int filesSize = env->CallIntMethod (files, size);
     for (int i = 0; i < filesSize; ++i) {
       jobject file = env->CallObjectMethod (files, get, i);
-      jobject pathObject = env->CallObjectMethod (file, fileGetPath);
-      jobject contentObject = env->CallObjectMethod (file, fileGetContent);
+      jobject path = env->CallObjectMethod (file, fileGetPath);
+      jobject content = env->CallObjectMethod (file, fileGetContent);
 
-      const char *path = env->GetStringUTFChars((jstring) pathObject, 0);
-      const char *content = env->GetStringUTFChars((jstring) contentObject, 0);
-
-      inputFiles.push_back (std::string(path));
-      contents.push_back (std::string(content));
+      // we use vectors to simplify memory management and scoping
+      inputFiles.push_back (jni_helper::obtainString(env, (jstring)path));
+      contents.push_back (jni_helper::obtainString(env, (jstring)content));
 
       auto buffer = llvm::MemoryBuffer::getMemBuffer(contents.back().c_str());
       inMemoryFS->addFile(inputFiles.back(), modificationTime, std::move(buffer)); 
-      
-      env->ReleaseStringUTFChars((jstring) pathObject, path);
-      env->ReleaseStringUTFChars((jstring) contentObject, content);
     }
 
     llvm::IntrusiveRefCntPtr<llvm::vfs::OverlayFileSystem> overlayFS
