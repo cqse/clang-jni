@@ -1,6 +1,7 @@
 
 package eu.cqse.clang;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -67,7 +68,22 @@ public class ClangBinding {
 	 *                         file extension. This is especially useful for header
 	 *                         files.
 	 */
-	public static native List<ClangTidyError> runClangTidy(List<ClangTidyFile> files, String checks,
-			List<String> compilerSwitches, Map<String, String> checkOptions, boolean codeIsCpp);
+	public static List<ClangTidyError> runClangTidy(List<ClangTidyFile> files, String checks,
+			List<String> compilerSwitches, Map<String, String> checkOptions, boolean codeIsCpp) {
 
+		// we pass the check options map as two lists, as the handling of lists is way
+		// easier on the JNI side
+		List<String> checkOptionsKeys = new ArrayList<String>();
+		List<String> checkOptionsValues = new ArrayList<String>();
+		checkOptions.forEach((key, value) -> {
+			checkOptionsKeys.add(key);
+			checkOptionsValues.add(value);
+		});
+
+		return runClangTidyInternal(files, checks, compilerSwitches, checkOptionsKeys, checkOptionsValues, codeIsCpp);
+	}
+
+	private static native List<ClangTidyError> runClangTidyInternal(List<ClangTidyFile> files, String checks,
+			List<String> compilerSwitches, List<String> checkOptionsKeys, List<String> checkOptionsValues,
+			boolean codeIsCpp);
 }
