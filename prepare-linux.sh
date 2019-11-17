@@ -88,10 +88,20 @@ echo "Patching check to get rid of locale dependency of option parsing"
 (
     cd ../llvm-project
     cat <<EOF | patch -p1
-index 09409d87020..415eabfd35b 100644
+index 09409d87020..71c406ec286 100644
 --- a/clang-tools-extra/clang-tidy/bugprone/SuspiciousMissingCommaCheck.cpp
 +++ b/clang-tools-extra/clang-tidy/bugprone/SuspiciousMissingCommaCheck.cpp
-@@ -67,11 +67,20 @@ AST_MATCHER_P(StringLiteral, isConcatenatedLiteral, unsigned,
+@@ -10,6 +10,9 @@
+ #include "clang/AST/ASTContext.h"
+ #include "clang/ASTMatchers/ASTMatchFinder.h"
+ 
++#include <sstream>
++#include <locale>
++
+ using namespace clang::ast_matchers;
+ 
+ namespace clang {
+@@ -67,11 +70,20 @@ AST_MATCHER_P(StringLiteral, isConcatenatedLiteral, unsigned,
  
  } // namespace
  
