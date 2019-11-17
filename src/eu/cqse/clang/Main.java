@@ -13,6 +13,7 @@ public class Main {
 
 	private static final String CODE = "" + //
 			"#include \"my-header.h\"\n" + //
+			"#include <stdio.h>\n" + //
 			"\n" + //
 			"int Foo::add (int a, int b) {\n" + //
 			"  for (int i = 0; i < 10; ++i);\n" + //
@@ -131,8 +132,8 @@ public class Main {
 				.forEach((key, value) -> System.out.println("  " + key + " -> " + value));
 
 		System.out.println("\n## clang-tidy test run: ");
-		List<ClangTidyFile> files = Arrays.asList(new ClangTidyFile("code.cc", CODE),
-				new ClangTidyFile("my-header.h", HEADER));
+		List<ClangTidyFile> files = Arrays.asList(new ClangTidyFile("/virtual/code.cc", CODE),
+				new ClangTidyFile("/virtual/my-header.h", HEADER));
 		List<ClangTidyError> errors = ClangBinding.runClangTidy(files, "*", Collections.emptyList(),
 				ClangBinding.getAllClangTidyCheckOptions(), true);
 		for (ClangTidyError error : errors) {

@@ -266,8 +266,9 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidyInternal
     }
 
     llvm::IntrusiveRefCntPtr<llvm::vfs::OverlayFileSystem> overlayFS
-      (new llvm::vfs::OverlayFileSystem(inMemoryFS));
-
+      (new llvm::vfs::OverlayFileSystem(llvm::vfs::getRealFileSystem()));
+    overlayFS->pushOverlay(inMemoryFS);
+    
     std::vector<clang::tidy::ClangTidyError> errors =
       runClangTidy(context, *compilations, inputFiles, overlayFS);
     
