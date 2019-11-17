@@ -13,9 +13,38 @@ struct ClangBindingVisitorParameter {
     jobject java_visitor;
 };
 
+#define CLANG_JNI_BEGIN_EXCEPTION_HANDLER try {
+#define CLANG_JNI_END_EXCEPTION_HANDLER(NAME) \
+  } catch (const std::exception &e) { \
+    jclass exceptionClass = env->FindClass("java/lang/RuntimeException"); \
+    std::string message = "Exception in clang-tidy integration method " NAME ": "; \
+    message += e.what(); \
+    env->ThrowNew (exceptionClass, message.c_str()); \
+    return 0; \
+  } catch (...) { \
+    jclass exceptionClass = env->FindClass("java/lang/RuntimeException"); \
+    env->ThrowNew (exceptionClass, "Unknown low level exception in clang-tidy integration method " NAME "!"); \
+    return 0; \
+  }
+#define CLANG_JNI_END_EXCEPTION_HANDLER_NO_RETURN(NAME) \
+  } catch (const std::exception &e) { \
+    jclass exceptionClass = env->FindClass("java/lang/RuntimeException"); \
+    std::string message = "Exception in clang-tidy integration method " NAME ": "; \
+    message += e.what(); \
+    env->ThrowNew (exceptionClass, message.c_str()); \
+    return; \
+  } catch (...) { \
+    jclass exceptionClass = env->FindClass("java/lang/RuntimeException"); \
+    env->ThrowNew (exceptionClass, "Unknown low level exception in clang-tidy integration method " NAME "!"); \
+    return; \
+  }
+
+
 JNIEXPORT void JNICALL Java_eu_cqse_clang_ClangBinding_visitChildrenImpl
   (JNIEnv * env, jclass cls, jlong cursor_pointer, jobject java_visitor) {
 
+    CLANG_JNI_BEGIN_EXCEPTION_HANDLER  
+  
     CXCursor root_cursor = **(CXCursor **)&cursor_pointer;
     
     ClangBindingVisitorParameter parameter;
@@ -43,10 +72,14 @@ JNIEXPORT void JNICALL Java_eu_cqse_clang_ClangBinding_visitChildrenImpl
                             jint result = param->env->CallIntMethod(param->java_visitor, param->method, cursor_copy, parent_copy);
                             return (CXChildVisitResult) result;
                         }, &parameter);
+
+    CLANG_JNI_END_EXCEPTION_HANDLER_NO_RETURN("visitChildrenImpl")
 }
 
 JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_getSpellingLocationPropertiesImpl
   (JNIEnv *env, jclass cls, jlong location_ptr) {
+
+    CLANG_JNI_BEGIN_EXCEPTION_HANDLER  
 
     CXSourceLocation location = **(CXSourceLocation **)&location_ptr;
 
@@ -62,10 +95,13 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_getSpellingLocationPro
     clang_disposeString (fileName);
 
     return env->NewObject (result_class, constructor, javaFileName, line, column, offset);
+    CLANG_JNI_END_EXCEPTION_HANDLER("getSpellingLocationPropertiesImpl")
 }
 
 JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_getExpansionLocationPropertiesImpl
   (JNIEnv *env, jclass cls, jlong location_ptr) {
+
+    CLANG_JNI_BEGIN_EXCEPTION_HANDLER  
 
     CXSourceLocation location = **(CXSourceLocation **)&location_ptr;
 
@@ -81,10 +117,13 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_getExpansionLocationPr
     clang_disposeString (fileName);
 
     return env->NewObject (result_class, constructor, javaFileName, line, column, offset);
+    CLANG_JNI_END_EXCEPTION_HANDLER("getExpansionLocationPropertiesImpl")
 }
 
 JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_getAllClangTidyChecks
   (JNIEnv *env, jclass cls) {
+
+    CLANG_JNI_BEGIN_EXCEPTION_HANDLER  
 
     jclass arrayListClass = env->FindClass("java/util/ArrayList");
     jmethodID constructor = env->GetMethodID(arrayListClass, "<init>", "()V");
@@ -100,10 +139,14 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_getAllClangTidyChecks
     }
 
     return result;
+
+    CLANG_JNI_END_EXCEPTION_HANDLER("getAllClangTidyChecks")
 }
 
 JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_getAllClangTidyCheckOptions
   (JNIEnv *env, jclass cls) {
+
+    CLANG_JNI_BEGIN_EXCEPTION_HANDLER  
 
     jclass hashMapClass = env->FindClass("java/util/HashMap");
     jmethodID constructor = env->GetMethodID(hashMapClass, "<init>", "()V");
@@ -122,6 +165,8 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_getAllClangTidyCheckOp
     }
 
     return result;
+
+    CLANG_JNI_END_EXCEPTION_HANDLER("getAllClangTidyCheckOptions")
 }
 
 
@@ -141,7 +186,8 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidyInternal
 (JNIEnv *env, jclass cls, jobject files, jstring rules, jobject compilerSwitches,
  jobject checkOptionsKeys, jobject checkOptionsValues, jboolean codeIsCpp) {
 
-  try {
+    CLANG_JNI_BEGIN_EXCEPTION_HANDLER
+    
     jclass listClass = env->FindClass("java/util/List");
     jmethodID add = env->GetMethodID(listClass, "add", "(Ljava/lang/Object;)Z");
     jmethodID size = env->GetMethodID(listClass, "size", "()I");
@@ -236,15 +282,6 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidyInternal
     }
 
     return result;
-  } catch (const std::exception &e) {
-    jclass exceptionClass = env->FindClass("java/lang/RuntimeException");
-    std::string message = "Exception in clang-tidy integration: ";
-    message += e.what();
-    env->ThrowNew (exceptionClass, message.c_str());
-    return 0;
-  } catch (...) {
-    jclass exceptionClass = env->FindClass("java/lang/RuntimeException");
-    env->ThrowNew (exceptionClass, "Unknown low level exception in clang-tidy integration!");
-    return 0;
-  }
+
+    CLANG_JNI_END_EXCEPTION_HANDLER("runClangTidyInternal")
 }

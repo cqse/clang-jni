@@ -84,6 +84,38 @@ index 2baccaa0cbd..c43ce425fe0 100644
 EOF
 )
 
+echo "Patching check to get rid of locale dependency of option parsing"
+(
+    cd ../llvm-project
+    cat <<EOF | patch -p1
+index 09409d87020..415eabfd35b 100644
+--- a/clang-tools-extra/clang-tidy/bugprone/SuspiciousMissingCommaCheck.cpp
++++ b/clang-tools-extra/clang-tidy/bugprone/SuspiciousMissingCommaCheck.cpp
+@@ -67,11 +67,20 @@ AST_MATCHER_P(StringLiteral, isConcatenatedLiteral, unsigned,
+ 
+ } // namespace
+ 
++// a more robust stod that is indepdent of the locale
++double robust_stod(const std::string& str) {
++  double result = 0;
++  std::istringstream istr(str);
++  istr.imbue(std::locale("C"));
++  istr >> result;
++  return result;
++}
++  
+ SuspiciousMissingCommaCheck::SuspiciousMissingCommaCheck(
+     StringRef Name, ClangTidyContext *Context)
+     : ClangTidyCheck(Name, Context),
+       SizeThreshold(Options.get("SizeThreshold", 5U)),
+-      RatioThreshold(std::stod(Options.get("RatioThreshold", ".2"))),
++      RatioThreshold(robust_stod(Options.get("RatioThreshold", "0.2"))),
+       MaxConcatenatedTokens(Options.get("MaxConcatenatedTokens", 5U)) {}
+ 
+ void SuspiciousMissingCommaCheck::storeOptions(
+EOF
+)
+
 PACKAGE=clang-build-package.tar.gz
 echo "Packing for usage on other build machines"
 (
