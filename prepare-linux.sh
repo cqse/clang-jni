@@ -12,7 +12,7 @@ LLVM_TAG=llvmorg-9.0.0
 
 echo "Installing required tools"
 sudo apt update
-sudo apt install -y g++ cmake openjdk-8-jdk-headless swig python3-sphinx html-xml-utils
+sudo apt install -y g++ cmake openjdk-8-jdk-headless swig
 
 echo "Cloning LLVM into sibling directory"
 (
@@ -56,12 +56,6 @@ echo "Integrating own Java JNI code"
     sed -i -e '/Index_Internal.h/a eu_cqse_clang_ClangBinding.h' CMakeLists.txt
     sed -i -e '/set.LIBS/i include_directories(../../include/clang-c)' CMakeLists.txt
     sed -i -e '/if.ENABLE_SHARED/i target_compile_options (libclang PUBLIC "-fexceptions")' CMakeLists.txt
-)
-
-echo "Compiling documentation"
-(
-    cd ../llvm-project/clang-tools-extra/docs/
-    sphinx-build . ../docs-out   
 )
 
 echo "Patching raw_ostream to suppress unwanted output"
