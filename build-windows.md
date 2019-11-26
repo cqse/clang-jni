@@ -25,7 +25,7 @@ More info: https://clang.llvm.org/get_started.html
 - `cd llvm-project`
 - `mkdir build`
 - `cd build`
-- `cmake -DLLVM_ENABLE_PROJECTS=clang -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -G "Visual Studio 16 2019" -A x64 -Thost=x64 ../llvm`
+- `cmake -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra" -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -G "Visual Studio 16 2019" -A x64 -Thost=x64 ../llvm`
 
 Open the `LLVM.sln` in the build directory with Visual Studio. Set the
 build type to *Release* and build the *libclang* target.
