@@ -9,6 +9,7 @@ public class ClangTidyError {
 
 	private final String path;
 
+	/** Character offset from start of file. */
 	private final int offset;
 
 	public ClangTidyError(String checkName, String message, String path, int offset) {
