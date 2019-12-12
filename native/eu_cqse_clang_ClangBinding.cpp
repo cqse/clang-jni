@@ -13,6 +13,7 @@ struct ClangBindingVisitorParameter {
     jobject java_visitor;
 };
 
+
 #define CLANG_JNI_BEGIN_EXCEPTION_HANDLER try {
 #define CLANG_JNI_END_EXCEPTION_HANDLER(NAME) \
   } catch (const std::exception &e) { \
@@ -39,6 +40,34 @@ struct ClangBindingVisitorParameter {
     return; \
   }
 
+namespace jni_helper{
+
+  std::string obtainString (JNIEnv *env, jstring s) {
+      const char *temp = env->GetStringUTFChars(s, 0);
+      std::string result (temp);
+      env->ReleaseStringUTFChars(s, temp);
+      return result;
+  }
+
+  void handlePossibleJniException(JNIEnv *env) {
+      jthrowable exc = env->ExceptionOccurred();
+      if (exc) {
+          env->ExceptionDescribe();
+          env->ExceptionClear();
+
+          /* We don't do much with the exception, except that we print a
+             debug message using ExceptionDescribe, clear it, and throw
+             a new exception. */
+          jclass newExcCls = env->FindClass("java/lang/IllegalArgumentException");
+          if (newExcCls == 0) {
+              // Unable to find the new exception class, give up.
+              return;
+          }
+          env->ThrowNew(newExcCls, "Caught illegal argument exception when calling java code.");
+          env->DeleteLocalRef(newExcCls);
+      }
+  }
+}
 
 JNIEXPORT void JNICALL Java_eu_cqse_clang_ClangBinding_visitChildrenImpl
   (JNIEnv * env, jclass cls, jlong cursor_pointer, jobject java_visitor) {
@@ -70,6 +99,7 @@ JNIEXPORT void JNICALL Java_eu_cqse_clang_ClangBinding_visitChildrenImpl
                             
                             ClangBindingVisitorParameter* param = (ClangBindingVisitorParameter*)client_data;
                             jint result = param->env->CallIntMethod(param->java_visitor, param->method, cursor_copy, parent_copy);
+                            jni_helper::handlePossibleJniException(param->env);
                             return (CXChildVisitResult) result;
                         }, &parameter);
 
@@ -94,7 +124,9 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_getSpellingLocationPro
     jstring javaFileName = env->NewStringUTF(clang_getCString(fileName));
     clang_disposeString (fileName);
 
-    return env->NewObject (result_class, constructor, javaFileName, line, column, offset);
+    jobject result = env->NewObject (result_class, constructor, javaFileName, line, column, offset);
+    env->DeleteLocalRef(result_class);
+    return result;
     CLANG_JNI_END_EXCEPTION_HANDLER("getSpellingLocationPropertiesImpl")
 }
 
@@ -116,7 +148,10 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_getExpansionLocationPr
     jstring javaFileName = env->NewStringUTF(clang_getCString(fileName));
     clang_disposeString (fileName);
 
-    return env->NewObject (result_class, constructor, javaFileName, line, column, offset);
+    jobject result = env->NewObject (result_class, constructor, javaFileName, line, column, offset);
+
+    env->DeleteLocalRef(result_class);
+    return result;
     CLANG_JNI_END_EXCEPTION_HANDLER("getExpansionLocationPropertiesImpl")
 }
 
@@ -135,9 +170,13 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_getAllClangTidyChecks
 
     jmethodID add = env->GetMethodID(arrayListClass, "add", "(Ljava/lang/Object;)Z");
     for (std::vector<std::string>::iterator i = checkNames.begin(), end = checkNames.end(); i != end; ++i) {
-      env->CallObjectMethod (result, add, env->NewStringUTF (i->c_str()));
+      jstring nameString = env->NewStringUTF (i->c_str());
+      env->CallObjectMethod (result, add, nameString);
+      jni_helper::handlePossibleJniException(env);
+      env->DeleteLocalRef(nameString);
     }
 
+    env->DeleteLocalRef(arrayListClass);
     return result;
 
     CLANG_JNI_END_EXCEPTION_HANDLER("getAllClangTidyChecks")
@@ -160,27 +199,22 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_getAllClangTidyCheckOp
 				     "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
     for (clang::tidy::ClangTidyOptions::OptionMap::iterator i = checkOptions.begin(),
 	   end = checkOptions.end(); i != end; ++i) {
-      env->CallObjectMethod (result, put, env->NewStringUTF (i->first.c_str()),
-			     env->NewStringUTF (i->second.c_str()));
-    }
+	   jstring key = env->NewStringUTF (i->first.c_str());
+	   jstring value = env->NewStringUTF (i->second.c_str());
+      env->CallObjectMethod (result, put, key, value);
+	  jni_helper::handlePossibleJniException(env);
+	  env->DeleteLocalRef(key);
+	  env->DeleteLocalRef(value);
+      }
 
+    env->DeleteLocalRef(hashMapClass);
     return result;
 
     CLANG_JNI_END_EXCEPTION_HANDLER("getAllClangTidyCheckOptions")
 }
 
 
-namespace jni_helper{
 
-  std::string obtainString (JNIEnv *env, jstring s) {
-      const char *temp = env->GetStringUTFChars(s, 0);
-      std::string result (temp);
-      env->ReleaseStringUTFChars(s, temp);
-      return result;
-  }
-
-  
-}
 
 JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidyInternal
 (JNIEnv *env, jclass cls, jobject files, jstring rules, jobject compilerSwitches,
@@ -192,6 +226,7 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidyInternal
     jmethodID add = env->GetMethodID(listClass, "add", "(Ljava/lang/Object;)Z");
     jmethodID size = env->GetMethodID(listClass, "size", "()I");
     jmethodID get = env->GetMethodID(listClass, "get", "(I)Ljava/lang/Object;");
+    env->DeleteLocalRef(listClass);
 
     jclass arrayListClass = env->FindClass("java/util/ArrayList");
     jmethodID constructor = env->GetMethodID(arrayListClass, "<init>", "()V");
@@ -199,12 +234,14 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidyInternal
     jclass fileClass = env->FindClass("eu/cqse/clang/ClangTidyFile");
     jmethodID fileGetPath = env->GetMethodID(fileClass, "getPath", "()Ljava/lang/String;");
     jmethodID fileGetContent = env->GetMethodID(fileClass, "getContent", "()Ljava/lang/String;");
+    env->DeleteLocalRef(fileClass);
 
     jclass errorClass = env->FindClass("eu/cqse/clang/ClangTidyError");
     jmethodID errorConstructor = env->GetMethodID
       (errorClass, "<init>", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V");
 
     jobject result = env->NewObject (arrayListClass, constructor);
+    env->DeleteLocalRef(arrayListClass);
 
     clang::tidy::ClangTidyGlobalOptions globalOptions;
     clang::tidy::ClangTidyOptions options = clang::tidy::ClangTidyOptions::getDefaults();
@@ -219,12 +256,18 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidyInternal
 
     // check options; we assume both options to have same size
     int checkOptionsSize = env->CallIntMethod (checkOptionsKeys, size);
+    jni_helper::handlePossibleJniException(env);
+
     for (int i = 0; i < checkOptionsSize; ++i) {
       jobject keyObject = env->CallObjectMethod (checkOptionsKeys, get, i);
+      jni_helper::handlePossibleJniException(env);
       jobject valueObject = env->CallObjectMethod (checkOptionsValues, get, i);
+      jni_helper::handlePossibleJniException(env);
 
       options.CheckOptions.insert ({ jni_helper::obtainString(env, (jstring)keyObject),
 	    jni_helper::obtainString(env, (jstring)valueObject)});
+	  env->DeleteLocalRef(keyObject);
+	  env->DeleteLocalRef(valueObject);
     }
     
     auto optionsProvider = llvm::make_unique<clang::tidy::DefaultOptionsProvider>(globalOptions, options);
@@ -235,10 +278,13 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidyInternal
     argv.push_back("my-compiler");
     argv.push_back("--");
     int compilerSwitchesSize = env->CallIntMethod (compilerSwitches, size);
+    jni_helper::handlePossibleJniException(env);
     for (int i = 0; i < compilerSwitchesSize; ++i) {
       jobject compilerSwitch = env->CallObjectMethod (compilerSwitches, get, i);
+      jni_helper::handlePossibleJniException(env);
       argvBuffer.push_back(jni_helper::obtainString(env, (jstring)compilerSwitch));
       argv.push_back (argvBuffer.back().c_str());
+      env->DeleteLocalRef(compilerSwitch);
     }
     argv.push_back(0);
     int argc = argv.size()-1;
@@ -252,17 +298,25 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidyInternal
     time_t modificationTime = std::time(0);
     
     int filesSize = env->CallIntMethod (files, size);
+    jni_helper::handlePossibleJniException(env);
     for (int i = 0; i < filesSize; ++i) {
       jobject file = env->CallObjectMethod (files, get, i);
+      jni_helper::handlePossibleJniException(env);
       jobject path = env->CallObjectMethod (file, fileGetPath);
+      jni_helper::handlePossibleJniException(env);
       jobject content = env->CallObjectMethod (file, fileGetContent);
+      jni_helper::handlePossibleJniException(env);
 
       // we use vectors to simplify memory management and scoping
       inputFiles.push_back (jni_helper::obtainString(env, (jstring)path));
       contents.push_back (jni_helper::obtainString(env, (jstring)content));
 
       auto buffer = llvm::MemoryBuffer::getMemBuffer(contents.back().c_str());
-      inMemoryFS->addFile(inputFiles.back(), modificationTime, std::move(buffer)); 
+      inMemoryFS->addFile(inputFiles.back(), modificationTime, std::move(buffer));
+
+      env->DeleteLocalRef(file);
+      env->DeleteLocalRef(path);
+      env->DeleteLocalRef(content);
     }
 
     llvm::IntrusiveRefCntPtr<llvm::vfs::OverlayFileSystem> overlayFS
@@ -272,16 +326,21 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidyInternal
     std::vector<clang::tidy::ClangTidyError> errors =
       runClangTidy(context, *compilations, inputFiles, overlayFS);
     
-    for (std::vector<clang::tidy::ClangTidyError>::iterator i = errors.begin(),
-	   end = errors.end(); i != end; ++i) {
-      jobject javaError = env->NewObject (errorClass, errorConstructor,
-					  env->NewStringUTF(i->DiagnosticName.c_str()),
-					  env->NewStringUTF(i->Message.Message.c_str()),
-					  env->NewStringUTF(i->Message.FilePath.c_str()),
-					  i->Message.FileOffset);
+    for (std::vector<clang::tidy::ClangTidyError>::iterator i = errors.begin(), end = errors.end(); i != end; ++i) {
+      jstring diagnosticName = env->NewStringUTF(i->DiagnosticName.c_str());
+      jstring message = env->NewStringUTF(i->Message.Message.c_str());
+      jstring filePath =  env->NewStringUTF(i->Message.FilePath.c_str());
+      jobject javaError = env->NewObject (errorClass, errorConstructor, diagnosticName, message, filePath,
+                                          i->Message.FileOffset);
       env->CallObjectMethod (result, add, javaError);
+      jni_helper::handlePossibleJniException(env);
+      env->DeleteLocalRef(diagnosticName);
+      env->DeleteLocalRef(message);
+      env->DeleteLocalRef(filePath);
+      env->DeleteLocalRef(javaError);
     }
 
+    env->DeleteLocalRef(errorClass);
     return result;
 
     CLANG_JNI_END_EXCEPTION_HANDLER("runClangTidyInternal")
