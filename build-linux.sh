@@ -31,15 +31,7 @@ echo "Patching cmake files to work on this machine"
         # these are the include dirs for OpenJDK 8
         sed -i -e '/set.LIBS/i include_directories(/usr/lib/jvm/java-8-openjdk-amd64/include)' CMakeLists.txt
         sed -i -e '/set.LIBS/i include_directories(/usr/lib/jvm/java-8-openjdk-amd64/include/linux)' CMakeLists.txt
-	# Arch Linux
-        sed -i -e '/set.LIBS/i include_directories(/usr/lib/jvm/java-8-openjdk/include)' CMakeLists.txt
-        sed -i -e '/set.LIBS/i include_directories(/usr/lib/jvm/java-8-openjdk/include/linux)' CMakeLists.txt
     fi
-)
-
-echo "Ensuring sources are up to date"
-(
-    cp native/*.cpp ../llvm-project/clang/tools/libclang/
 )
 
 echo "Running cmake"
