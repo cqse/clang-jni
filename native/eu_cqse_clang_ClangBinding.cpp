@@ -20,6 +20,9 @@ struct ClangBindingVisitorParameter {
 #define CLANG_JNI_BEGIN_EXCEPTION_HANDLER try { jni_helper::initializeJniClasses(env)
 
 #define CLANG_JNI_END_EXCEPTION_HANDLER(NAME) \
+  } catch (jni_helper::jni_exception_occurred &e) {   \
+    /* nothing to do, as the exception will be re-thrown/continue at the calling Java code */ \
+    return 0; \
   } catch (const std::exception &e) { \
     std::string message = "Exception in clang-tidy integration method " NAME ": "; \
     message += e.what(); \
@@ -30,6 +33,9 @@ struct ClangBindingVisitorParameter {
     return 0; \
   }
 #define CLANG_JNI_END_EXCEPTION_HANDLER_NO_RETURN(NAME) \
+  } catch (jni_helper::jni_exception_occurred &e) {   \
+    /* nothing to do, as the exception will be re-thrown/continue at the calling Java code */ \
+    return; \
   } catch (const std::exception &e) { \
     std::string message = "Exception in clang-tidy integration method " NAME ": "; \
     message += e.what(); \
@@ -42,14 +48,13 @@ struct ClangBindingVisitorParameter {
 
 namespace jni_helper{
 
+    class jni_exception_occurred {};
+
     std::mutex initializationMutex;
     bool isInitialized = false;
 
     // classes and methods that we use/need all over the place
     jclass runtimeExceptionClass;
-
-    jclass throwableClass;
-    jmethodID throwableGetMessage;
 
     jclass clangSpellingLocationPropertiesClass;
     jmethodID clangSpellingLocationPropertiesConstructor;
@@ -79,20 +84,8 @@ namespace jni_helper{
     void handlePossibleJniException(JNIEnv *env) {
         jthrowable exc = env->ExceptionOccurred();
         if (exc) {
-            env->ExceptionClear();
-
-	    jstring messageObject = (jstring)env->CallObjectMethod(exc, throwableGetMessage);
-	    const char *message = env->GetStringUTFChars(messageObject, 0);
-	    if (!message) {
-	      env->ExceptionClear();
-	      throw std::runtime_error("Java exception occurred but could not get message!");
-	    }
-
-	    std::string messageString (message);
-	    env->ReleaseStringUTFChars(messageObject, message);
-	    env->DeleteLocalRef(messageObject);
-
-	    throw std::runtime_error(messageString);
+            // exits the JNI code and signals that a Java exception is pending
+            throw jni_exception_occurred ();
         }
     }
 
@@ -108,11 +101,6 @@ namespace jni_helper{
         if (isInitialized) {
             return;
         }
-
-	throwableClass = env->FindClass("java/lang/Throwable");
-        HANDLE_JNI_NULL_RESULT(throwableClass);
-	throwableGetMessage =
-	    env->GetMethodID(throwableClass, "getMessage", "()Ljava/lang/String;");
 
         runtimeExceptionClass = env->FindClass("java/lang/RuntimeException");
         HANDLE_JNI_NULL_RESULT(runtimeExceptionClass);
