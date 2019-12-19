@@ -17,7 +17,7 @@ struct ClangBindingVisitorParameter {
 };
 
 
-#define CLANG_JNI_BEGIN_EXCEPTION_HANDLER try { jni_helper::initializeJniClasses()
+#define CLANG_JNI_BEGIN_EXCEPTION_HANDLER try { jni_helper::initializeJniClasses(env)
 
 #define CLANG_JNI_END_EXCEPTION_HANDLER(NAME) \
   } catch (const std::exception &e) { \
@@ -42,12 +42,14 @@ struct ClangBindingVisitorParameter {
 
 namespace jni_helper{
 
-    mutex initializationMutex;
+    std::mutex initializationMutex;
     bool isInitialized = false;
 
     // classes and methods that we use/need all over the place
     jclass runtimeExceptionClass;
-    jmethodID runtimeExceptionConstructor
+
+    jclass throwableClass;
+    jmethodID throwableGetMessage;
 
     jclass clangSpellingLocationPropertiesClass;
     jmethodID clangSpellingLocationPropertiesConstructor;
@@ -71,7 +73,29 @@ namespace jni_helper{
 
     jclass clangTidyErrorClass;
     jmethodID clangTidyErrorConstructor;
-    
+
+#define HANDLE_JNI_NULL_RESULT(X) if(!X) jni_helper::handlePossibleJniException(env)
+
+    void handlePossibleJniException(JNIEnv *env) {
+        jthrowable exc = env->ExceptionOccurred();
+        if (exc) {
+            env->ExceptionClear();
+
+	    jstring messageObject = (jstring)env->CallObjectMethod(exc, throwableGetMessage);
+	    const char *message = env->GetStringUTFChars(messageObject, 0);
+	    if (!message) {
+	      env->ExceptionClear();
+	      throw std::runtime_error("Java exception occurred but could not get message!");
+	    }
+
+	    std::string messageString (message);
+	    env->ReleaseStringUTFChars(messageObject, message);
+	    env->DeleteLocalRef(messageObject);
+
+	    throw std::runtime_error(messageString);
+        }
+    }
+
     void initializeJniClasses (JNIEnv *env) {
         if (isInitialized) {
             return;
@@ -79,16 +103,19 @@ namespace jni_helper{
 
         // following region is under lock until the lock is released,
         // which automatically happens at method exit
-        std::unique_lock<mutex> lock(initializationMutex);
+        std::unique_lock<std::mutex> lock(initializationMutex);
         
         if (isInitialized) {
             return;
         }
 
+	throwableClass = env->FindClass("java/lang/Throwable");
+        HANDLE_JNI_NULL_RESULT(throwableClass);
+	throwableGetMessage =
+	    env->GetMethodID(throwableClass, "getMessage", "()Ljava/lang/String;");
+
         runtimeExceptionClass = env->FindClass("java/lang/RuntimeException");
         HANDLE_JNI_NULL_RESULT(runtimeExceptionClass);
-        runtimeExceptionConstructor = env->GetMethodID(runtimeExceptionClass, "<init>", "(Ljava/lang/Throwable;)V");
-        HANDLE_JNI_NULL_RESULT(runtimeExceptionConstructor);
 
         clangSpellingLocationPropertiesClass = env->FindClass("eu/cqse/clang/ClangSpellingLocationProperties");
         HANDLE_JNI_NULL_RESULT(clangSpellingLocationPropertiesClass);
@@ -135,16 +162,6 @@ namespace jni_helper{
     
         isInitialized = true;
     }
-    
-    void handlePossibleJniException(JNIEnv *env) {
-        jthrowable exc = env->ExceptionOccurred();
-        if (exc) {
-            env->ExceptionClear();
-            env->Throw(env->NewObject (runtimeExceptionClass, runtimeExceptionConstructor, exc));
-        }
-    }
-
-#define HANDLE_JNI_NULL_RESULT(X) if(!X) handlePossibleJniException(env)    
     
     std::string obtainString (JNIEnv *env, jstring s) {
         const char *temp = env->GetStringUTFChars(s, 0);
