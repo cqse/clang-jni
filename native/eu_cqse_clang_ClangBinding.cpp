@@ -81,7 +81,7 @@ namespace jni_helper{
 
 #define HANDLE_JNI_NULL_RESULT(X) \
   jni_helper::handlePossibleJniException(env); \
-  if (!(X)) throw std::exception("Returned null for " #X )
+  if (!(X)) throw std::runtime_error("Returned null for " #X )
 
     void handlePossibleJniException(JNIEnv *env) {
         jthrowable exc = env->ExceptionOccurred();
