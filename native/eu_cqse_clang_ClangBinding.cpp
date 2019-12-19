@@ -79,7 +79,9 @@ namespace jni_helper{
     jclass clangTidyErrorClass;
     jmethodID clangTidyErrorConstructor;
 
-#define HANDLE_JNI_NULL_RESULT(X) if(!X) jni_helper::handlePossibleJniException(env)
+#define HANDLE_JNI_NULL_RESULT(X) \
+  jni_helper::handlePossibleJniException(env); \
+  if (!(X)) throw std::exception("Returned null for " #X )
 
     void handlePossibleJniException(JNIEnv *env) {
         jthrowable exc = env->ExceptionOccurred();
@@ -87,6 +89,20 @@ namespace jni_helper{
             // exits the JNI code and signals that a Java exception is pending
             throw jni_exception_occurred ();
         }
+    }
+
+    jclass findGlobalClass(JNIEnv *env, const char *name) {
+        jclass theClass = env->FindClass(name);
+	HANDLE_JNI_NULL_RESULT(theClass);
+	theClass = (jclass) env->NewGlobalRef((jobject) theClass);
+	HANDLE_JNI_NULL_RESULT(theClass);
+	return theClass;
+    }
+
+    jmethodID getMethodId(JNIEnv *env, jclass theClass, const char *name, const char *signature) {
+        jmethodID method = env->GetMethodID(theClass, name, signature);
+	HANDLE_JNI_NULL_RESULT(method);
+	return method;
     }
 
     void initializeJniClasses (JNIEnv *env) {
@@ -102,51 +118,32 @@ namespace jni_helper{
             return;
         }
 
-        runtimeExceptionClass = env->FindClass("java/lang/RuntimeException");
-        HANDLE_JNI_NULL_RESULT(runtimeExceptionClass);
+        runtimeExceptionClass = findGlobalClass(env, "java/lang/RuntimeException");
 
-        clangSpellingLocationPropertiesClass = env->FindClass("eu/cqse/clang/ClangSpellingLocationProperties");
-        HANDLE_JNI_NULL_RESULT(clangSpellingLocationPropertiesClass);
+        clangSpellingLocationPropertiesClass = findGlobalClass(env, "eu/cqse/clang/ClangSpellingLocationProperties");
         clangSpellingLocationPropertiesConstructor =
-            env->GetMethodID(clangSpellingLocationPropertiesClass, "<init>", "(Ljava/lang/String;III)V");
-        HANDLE_JNI_NULL_RESULT(clangSpellingLocationPropertiesConstructor);
+	    getMethodId(env, clangSpellingLocationPropertiesClass, "<init>", "(Ljava/lang/String;III)V");
 
-        arrayListClass = env->FindClass("java/util/ArrayList");
-        HANDLE_JNI_NULL_RESULT(arrayListClass);
-        arrayListConstructor = env->GetMethodID(arrayListClass, "<init>", "()V");
-        HANDLE_JNI_NULL_RESULT(arrayListConstructor);
-        arrayListAdd = env->GetMethodID(arrayListClass, "add", "(Ljava/lang/Object;)Z");
-        HANDLE_JNI_NULL_RESULT(arrayListAdd);
+        arrayListClass = findGlobalClass(env, "java/util/ArrayList");
+        arrayListConstructor = getMethodId(env, arrayListClass, "<init>", "()V");
+        arrayListAdd = getMethodId(env, arrayListClass, "add", "(Ljava/lang/Object;)Z");
 
-        hashMapClass = env->FindClass("java/util/HashMap");
-        HANDLE_JNI_NULL_RESULT(hashMapClass);
-        hashMapConstructor = env->GetMethodID(hashMapClass, "<init>", "()V");
-        HANDLE_JNI_NULL_RESULT(hashMapConstructor);
-        hashMapPut = env->GetMethodID(hashMapClass, "put",
-				     "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
-        HANDLE_JNI_NULL_RESULT(hashMapPut);
+        hashMapClass = findGlobalClass(env, "java/util/HashMap");
+        hashMapConstructor = getMethodId(env, hashMapClass, "<init>", "()V");
+        hashMapPut = getMethodId(env, hashMapClass, "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
 
-        listClass = env->FindClass("java/util/List");
-        HANDLE_JNI_NULL_RESULT(listClass);
-        listAdd = env->GetMethodID(listClass, "add", "(Ljava/lang/Object;)Z");
-        HANDLE_JNI_NULL_RESULT(listAdd);
-        listSize = env->GetMethodID(listClass, "size", "()I");
-        HANDLE_JNI_NULL_RESULT(listSize);
-        listGet = env->GetMethodID(listClass, "get", "(I)Ljava/lang/Object;");
-        HANDLE_JNI_NULL_RESULT(listGet);
+        listClass = findGlobalClass(env, "java/util/List");
+        listAdd = getMethodId(env, listClass, "add", "(Ljava/lang/Object;)Z");
+	listSize = getMethodId(env, listClass, "size", "()I");
+	listGet = getMethodId(env, listClass, "get", "(I)Ljava/lang/Object;");
 
-        clangTidyFileClass = env->FindClass("eu/cqse/clang/ClangTidyFile");
-        HANDLE_JNI_NULL_RESULT(clangTidyFileClass);
-        clangTidyFileGetPath = env->GetMethodID(clangTidyFileClass, "getPath", "()Ljava/lang/String;");
-        HANDLE_JNI_NULL_RESULT(clangTidyFileGetPath);
-        clangTidyFileGetContent = env->GetMethodID(clangTidyFileClass, "getContent", "()Ljava/lang/String;");
-        HANDLE_JNI_NULL_RESULT(clangTidyFileGetContent);
+        clangTidyFileClass = findGlobalClass(env, "eu/cqse/clang/ClangTidyFile");
+        clangTidyFileGetPath = getMethodId(env, clangTidyFileClass, "getPath", "()Ljava/lang/String;");
+        clangTidyFileGetContent = getMethodId(env, clangTidyFileClass, "getContent", "()Ljava/lang/String;");
 
-        clangTidyErrorClass = env->FindClass("eu/cqse/clang/ClangTidyError");
-        HANDLE_JNI_NULL_RESULT(clangTidyErrorClass);
-        clangTidyErrorConstructor = env->GetMethodID
-            (clangTidyErrorClass, "<init>", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V");
-        HANDLE_JNI_NULL_RESULT(clangTidyErrorConstructor);
+        clangTidyErrorClass = findGlobalClass(env, "eu/cqse/clang/ClangTidyError");
+        clangTidyErrorConstructor =
+	    getMethodId(env, clangTidyErrorClass, "<init>", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V");
     
         isInitialized = true;
     }
@@ -167,12 +164,12 @@ JNIEXPORT void JNICALL Java_eu_cqse_clang_ClangBinding_visitChildrenImpl
     CLANG_JNI_BEGIN_EXCEPTION_HANDLER;
   
     CXCursor root_cursor = **(CXCursor **)&cursor_pointer;
-    
+
     ClangBindingVisitorParameter parameter;
     parameter.env = env;
-    parameter.method = env->GetMethodID(env->GetObjectClass(java_visitor), "visit", "(JJ)I");
+    parameter.method = jni_helper::getMethodId(env, env->GetObjectClass(java_visitor), "visit", "(JJ)I");
     parameter.java_visitor = java_visitor;
-    
+
     clang_visitChildren(root_cursor,
                         [](CXCursor cursor, CXCursor parent, CXClientData client_data) {
                             jlong cursor_copy = 0;
