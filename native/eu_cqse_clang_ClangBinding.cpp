@@ -20,6 +20,9 @@ struct ClangBindingVisitorParameter {
 #define CLANG_JNI_BEGIN_EXCEPTION_HANDLER try { jni_helper::initializeJniClasses()
 
 #define CLANG_JNI_END_EXCEPTION_HANDLER(NAME) \
+  } catch (jni_helper::jni_exception_occurred &e) {   \
+    /* nothing to do, as the exception will be re-thrown/continue at the calling Java code */ \
+    return 0; \
   } catch (const std::exception &e) { \
     std::string message = "Exception in clang-tidy integration method " NAME ": "; \
     message += e.what(); \
@@ -30,6 +33,9 @@ struct ClangBindingVisitorParameter {
     return 0; \
   }
 #define CLANG_JNI_END_EXCEPTION_HANDLER_NO_RETURN(NAME) \
+  } catch (jni_helper::jni_exception_occurred &e) {   \
+    /* nothing to do, as the exception will be re-thrown/continue at the calling Java code */ \
+    return; \
   } catch (const std::exception &e) { \
     std::string message = "Exception in clang-tidy integration method " NAME ": "; \
     message += e.what(); \
@@ -42,6 +48,8 @@ struct ClangBindingVisitorParameter {
 
 namespace jni_helper{
 
+    class jni_exception_occurred {};
+    
     mutex initializationMutex;
     bool isInitialized = false;
 
@@ -139,8 +147,8 @@ namespace jni_helper{
     void handlePossibleJniException(JNIEnv *env) {
         jthrowable exc = env->ExceptionOccurred();
         if (exc) {
-            env->ExceptionClear();
-            env->Throw(env->NewObject (runtimeExceptionClass, runtimeExceptionConstructor, exc));
+            // exits the JNI code and signals that a Java exception is pending
+            throw jni_exception_occurred ();
         }
     }
 
