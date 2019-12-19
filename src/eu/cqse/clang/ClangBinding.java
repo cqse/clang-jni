@@ -46,7 +46,7 @@ public class ClangBinding {
 		 * {@link CXCursor}.
 		 */
 		public int visit(long cursorPtr, long parentPtr) {
-			return delegate.visit(new CXCursor(cursorPtr, false), new CXCursor(parentPtr, false)).swigValue();
+			return delegate.visit(new CXCursor(cursorPtr, true), new CXCursor(parentPtr, true)).swigValue();
 		}
 	}
 
