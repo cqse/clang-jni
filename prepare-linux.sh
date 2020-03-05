@@ -48,22 +48,22 @@ echo "Integrating own Java JNI code"
 
     # patch generated JNI to fix resource leak
     cat <<EOF | (cd ../llvm-project && patch -p1)
-*** a/clang/tools/libclang/clang-jni.cpp     2020-03-05 08:05:33.818697333 +0000
---- b/clang/tools/libclang/clang-jni.cpp     2020-03-05 07:59:27.293591600 +0000
-*************** SWIGEXPORT void JNICALL Java_eu_cqse_cla
-*** 1267,1272 ****
---- 1267,1278 ----
-    (void)jenv;
-    (void)jcls;
-    arg1 = *(CXUnsavedFile **)&jarg1;
-+
-+   if (arg1 != 0) {
-+     if (arg1->Contents != 0) delete arg1->Contents;
-+     if (arg1->Filename != 0) delete arg1->Filename;
-+   }
-+
-    delete arg1;
-  }
+diff --git a/clang/tools/libclang/clang-jni.cpp b/clang/tools/libclang/clang-jni.cpp
+index 279f9e62b56..1d668f0c201 100644
+--- a/clang/tools/libclang/clang-jni.cpp
++++ b/clang/tools/libclang/clang-jni.cpp
+@@ -1266,7 +1266,11 @@ SWIGEXPORT void JNICALL Java_eu_cqse_clang_ClangJNI_delete_1CXUnsavedFile(JNIEnv
+   
+   (void)jenv;
+   (void)jcls;
+-  arg1 = *(CXUnsavedFile **)&jarg1; 
++  arg1 = *(CXUnsavedFile **)&jarg1;
++  if (arg1 != 0) {
++    if (arg1->Contents != 0) delete arg1->Contents;
++    if (arg1->Filename != 0) delete arg1->Filename;
++  }
+   delete arg1;
+ }
 EOF
     
     # make generated JNI methods available in list of exported functions
