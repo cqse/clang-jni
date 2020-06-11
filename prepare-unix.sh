@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 # This is the main linux script for preparing the build of the JNI
 # native part for the clang bindings. This is intended to be run on a
 # fresh Ubunutu installation (last tested with 18.04), such as a cloud
@@ -8,18 +10,55 @@
 # directory of the git and will clone LLVM besides it.
 
 # The tag used to compile from
-LLVM_TAG=llvmorg-9.0.1 
+
+LLVM_GIT_TAG=llvmorg-9.0.1-hotfix-1
+SED=sed
+
+if [[ "$OSTYPE" == "darwin"* ]]
+then
+    SED=gsed
+fi
+
+function brew_install() {
+    local package="$1"
+
+    if brew list ${package}
+    then
+        brew upgrade ${package}
+    else
+        brew install ${package}
+    fi
+
+}
 
 echo "Installing required tools"
-sudo apt update
-sudo apt install -y g++ cmake openjdk-8-jdk-headless swig
+(
+    if [[ "$OSTYPE" == "darwin"* ]]
+    then
+        brew update
+        brew_install gnu-sed
+        brew_install cmake
+        brew_install swig
+    else
+        sudo apt update
+        sudo apt install -y g++ cmake openjdk-8-jdk-headless swig
+    fi
+)
 
-echo "Cloning LLVM into sibling directory"
+echo "Setting up clean checkout of llvm-project at tag ${LLVM_GIT_TAG}"
 (
     cd ..
-    git clone https://github.com/llvm/llvm-project.git
+
+    if [[ ! -d llvm-project ]]
+    then
+        git clone https://github.com/llvm/llvm-project.git
+    fi
+
     cd llvm-project
-    git checkout $LLVM_TAG
+    git clean -fdX
+    git clean -fd
+    git reset --hard
+    git checkout $LLVM_GIT_TAG
 )
 
 echo "Preparing JNI code generated via SWIG"
@@ -71,11 +110,12 @@ EOF
     grep -o 'Java_eu_cqse_clang_ClangBinding[^\(]*' eu_cqse_clang_ClangBinding.h >> libclang.exports
 
     # Monkey patching our build steps into existing cmake files
-    sed -i -e '/Indexing.cpp/a eu_cqse_clang_ClangBinding.cpp' CMakeLists.txt
-    sed -i -e '/Indexing.cpp/a clang-jni.cpp' CMakeLists.txt
-    sed -i -e '/Index_Internal.h/a eu_cqse_clang_ClangBinding.h' CMakeLists.txt
-    sed -i -e '/set.LIBS/i include_directories(../../include/clang-c)' CMakeLists.txt
-    sed -i -e '/if.ENABLE_SHARED/i target_compile_options (libclang PUBLIC "-fexceptions")' CMakeLists.txt
+    $SED -i -e '/Indexing.cpp/a eu_cqse_clang_ClangBinding.cpp' CMakeLists.txt
+    $SED -i -e '/Indexing.cpp/a clang-jni.cpp' CMakeLists.txt
+    $SED -i -e '/Index_Internal.h/a eu_cqse_clang_ClangBinding.h' CMakeLists.txt
+    $SED -i -e '/set.LIBS/i include_directories(../../include/clang-c)' CMakeLists.txt
+    $SED -i -e '/if.ENABLE_SHARED/i target_compile_options (libclang PUBLIC "-fexceptions")' CMakeLists.txt
+    
 )
 
 echo "Patching raw_ostream to suppress unwanted output"
