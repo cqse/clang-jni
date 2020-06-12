@@ -305,8 +305,13 @@ JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_getAllClangTidyCheckOp
 
 jmp_buf ljenv;
 
+// OS X uses SIGBUS in case of accessing incorrect memory region
+// Linux will use SIGSEGV - this is why we should use two handlers
+// there are 31 possible signals we can handle
+struct sigaction actions[31];
+
 // this function will set the handler for a signal
-void setup_signal_handler(int sig, void (*handler)(  ), struct sigaction *old) {
+void setup_signal_handler(int sig, void (*handler)(int), struct sigaction *old) {
   struct sigaction action;
 
   // fill action structure
@@ -331,56 +336,15 @@ void handler(int handle) {
   // be very condense here
   // just do essential stuff and get
   // back to the place you want to be
-  write(STDOUT_FILENO, "Hello from handler\n", strlen("Hello from handler\n"));
+  //write(2, "Hello from handler\n", strlen("Hello from handler\n"));
+  
   // set original signal handler
   sigaction(handle, &actions[handle - 1], NULL);
   // and jump to where we have set long jump
   siglongjmp(ljenv, 1);
 }
-
-// riskCode protected by handler
-// this method will not crash JVM
-JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidyInternal
-(JNIEnv *env, jclass cls, jobject files, jstring rules, jobject compilerSwitches,
- jobject checkOptionsKeys, jobject checkOptionsValues, jboolean codeIsCpp) {
-
-	 
-	// OS X uses SIGBUS in case of accessing incorrect memory region
-	// Linux will use SIGSEGV - this is why we should use two handlers
-	// there are 31 possible signals we can handle
-	struct sigaction actions[31];
 	
-  // setup signal handlers 
-  // signals are counted from 1 - 31. Array indexes are
-  // counted from 0 - 30. This is why we do 10-1 and 11-1
-  setup_signal_handler(10, handler, &actions[10 - 1]);
-  setup_signal_handler(11, handler, &actions[11 - 1]);
 
-  jobject result;
-  // set the long jump for the signal handler
-  // if handler is called it will jump
-  // here with the error code specified
-  // as parameter of siglongjmp
-  // first call to sigsetjmp returns 0
-  if( sigsetjmp(ljenv,1) == 0) {
-    // call the code that will fail
-    result = runClangTidyInternal2(env, cls, files, rules, compilerSwitches, checkOptionKeys, checkOptionValues, codeIsCpp);
-  } else {
-    // we can allocate a little bit more than we require
-    char exceptionBuffer[1024];
-    sprintf(exceptionBuffer, "Error");
-    (*env)->ThrowNew(	env, 
-                      (*env)->FindClass( 	env, 
-                      "java/lang/Exception"), 
-                      exceptionBuffer);
-  }
-
-  // if everything was OK, we can set old handlers
-  sigaction(10, &actions[10 - 1], NULL);
-  sigaction(11, &actions[11 - 1], NULL);	
-  
-  return result;
-}
 
 
 jobject runClangTidyInternal2
@@ -507,4 +471,39 @@ jobject runClangTidyInternal2
     return result;
 
     CLANG_JNI_END_EXCEPTION_HANDLER("runClangTidyInternal")
+}
+// riskCode protected by handler
+// this method will not crash JVM
+JNIEXPORT jobject JNICALL Java_eu_cqse_clang_ClangBinding_runClangTidyInternal
+(JNIEnv *env, jclass cls, jobject files, jstring rules, jobject compilerSwitches,
+ jobject checkOptionsKeys, jobject checkOptionsValues, jboolean codeIsCpp) {
+	
+  // setup signal handlers 
+  // signals are counted from 1 - 31. Array indexes are
+  // counted from 0 - 30. This is why we do 10-1 and 11-1
+  setup_signal_handler(10, handler, &actions[10 - 1]);
+  setup_signal_handler(11, handler, &actions[11 - 1]);
+
+  jobject result = NULL;
+  // set the long jump for the signal handler
+  // if handler is called it will jump
+  // here with the error code specified
+  // as parameter of siglongjmp
+  // first call to sigsetjmp returns 0
+  if( sigsetjmp(ljenv,1) == 0) {
+    // call the code that will fail
+    result = runClangTidyInternal2(env, cls, files, rules, compilerSwitches, checkOptionsKeys, checkOptionsValues, codeIsCpp);
+  } else {
+    // we can allocate a little bit more than we require
+    char exceptionBuffer[1024];
+    sprintf(exceptionBuffer, "Error");
+    
+    env->ThrowNew(jni_helper::runtimeExceptionClass, exceptionBuffer);
+  }
+
+  // if everything was OK, we can set old handlers
+  sigaction(10, &actions[10 - 1], NULL);
+  sigaction(11, &actions[11 - 1], NULL);	
+  
+  return result;
 }
