@@ -122,24 +122,4 @@ public class Main {
 		}
 
 	}
-
-	private static void runClangTidy() {
-		System.out.println("\n## All clang-tidy checks found: ");
-		ClangBinding.getAllClangTidyChecks().stream().map(s -> "  - " + s).forEach(System.out::println);
-
-		System.out.println("\n## All clang-tidy options found: ");
-		ClangBinding.getAllClangTidyCheckOptions()
-				.forEach((key, value) -> System.out.println("  " + key + " -> " + value));
-
-		System.out.println("\n## clang-tidy test run: ");
-		List<ClangTidyFile> files = Arrays.asList(new ClangTidyFile("/virtual/code.cc", CODE),
-				new ClangTidyFile("/virtual/my-header.h", HEADER));
-		List<ClangTidyError> errors = ClangBinding.runClangTidy(files, "*", Collections.emptyList(),
-				ClangBinding.getAllClangTidyCheckOptions(), true);
-		for (ClangTidyError error : errors) {
-			System.out.println(
-					error.getPath() + ":" + error.getOffset() + ":" + error.getCheckName() + ":" + error.getMessage());
-		}
-	}
-
 }
