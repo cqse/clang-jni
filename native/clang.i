@@ -32,3 +32,45 @@ int clang_putenv(char *string);
 
 %include "CXString.h"
 %include "Index.h"
+/*
+// This is from the Swig docs (Section 26.10.4 Converting Java String arrays to char **).
+// We need it to pass a Java String (like "-std=c99" to the main function of the clang parser).
+
+// This tells SWIG to treat char ** as a special case when used as a parameter  in a function call
+%typemap(in) char ** (jint size) {
+  int i = 0;
+  size = (*jenv)->GetArrayLength(jenv, $input);
+  $1 = (char **) malloc((size+1)*sizeof(char *));
+  // make a copy of each string
+  for (i = 0; i<size; i++) {
+    jstring j_string = (jstring)(*jenv)->GetObjectArrayElement(jenv, $input, i);
+    const char * c_string = (*jenv)->GetStringUTFChars(jenv, j_string, 0);
+    $1[i] = malloc((strlen(c_string)+1)*sizeof(char));
+    strcpy($1[i], c_string);
+    (*jenv)->ReleaseStringUTFChars(jenv, j_string, c_string);
+    (*jenv)->DeleteLocalRef(jenv, j_string);
+  }
+  $1[i] = 0;
+}
+
+// This cleans up the memory we malloc'd before the function call
+%typemap(freearg) char ** {
+  int i;
+  for (i=0; i<size$argnum-1; i++)
+    free($1[i]);
+  free($1);
+}
+
+// omitted the unnecessary typemap(out) part to keep complexity and error potential low
+
+// These 3 typemaps tell SWIG what JNI and Java types to use
+%typemap(jni) char ** "jobjectArray"
+%typemap(jtype) char ** "String[]"
+%typemap(jstype) char ** "String[]"
+
+// These 2 typemaps handle the conversion of the jtype to jstype typemap type and vice versa
+%typemap(javain) char ** "$javainput"
+%typemap(javaout) char ** {
+    return $jnicall;
+  }
+*/
