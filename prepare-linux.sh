@@ -8,7 +8,7 @@
 # directory of the git and will clone LLVM besides it.
 
 # The tag used to compile from
-LLVM_TAG=llvmorg-9.0.1 
+LLVM_TAG=llvmorg-21.1.8 
 
 echo "Installing required tools"
 sudo apt update
@@ -31,7 +31,7 @@ echo "Preparing JNI code generated via SWIG"
     cd ../llvm-project/clang/include/clang-c
 
     # run swig to generate the JNI binding
-    swig -c++ -java -package eu.cqse.clang -outdir ../../../../clang-jni/$GENERATED_DIR -o clang-jni.cpp -v -Wall clang.i
+    /usr/local/bin/swig -c++ -java -package eu.cqse.clang -outdir ../../../../clang-jni/$GENERATED_DIR -o clang-jni.cpp -v -Wall clang.i
 
     # make generated JNI methods available in list of exported functions
     grep -o 'Java.*ClangJNI[^\(]*' clang-jni.cpp >> ../../tools/libclang/libclang.exports
@@ -45,6 +45,8 @@ echo "Integrating own Java JNI code"
     # copy our own native code 
     cp native/eu_cqse_clang_ClangBinding.cpp ../llvm-project/clang/tools/libclang
     mv ../llvm-project/clang/include/clang-c/clang-jni.cpp ../llvm-project/clang/tools/libclang
+    # Also keep a copy in generated/ for Windows/macOS builds (no SWIG needed)
+    cp ../llvm-project/clang/tools/libclang/clang-jni.cpp generated/
 
     # patch generated JNI to fix resource leak
     cat <<EOF | (cd ../llvm-project && patch -p1)
@@ -52,7 +54,7 @@ diff --git a/clang/tools/libclang/clang-jni.cpp b/clang/tools/libclang/clang-jni
 index 279f9e62b56..1d668f0c201 100644
 --- a/clang/tools/libclang/clang-jni.cpp
 +++ b/clang/tools/libclang/clang-jni.cpp
-@@ -1266,7 +1266,11 @@ SWIGEXPORT void JNICALL Java_eu_cqse_clang_ClangJNI_delete_1CXUnsavedFile(JNIEnv
+@@ -1998,7 +1998,11 @@ SWIGEXPORT void JNICALL Java_eu_cqse_clang_ClangJNI_delete_1CXUnsavedFile(JNIEnv
    
    (void)jenv;
    (void)jcls;
@@ -75,77 +77,32 @@ EOF
     sed -i -e '/Indexing.cpp/a clang-jni.cpp' CMakeLists.txt
     sed -i -e '/Index_Internal.h/a eu_cqse_clang_ClangBinding.h' CMakeLists.txt
     sed -i -e '/set.LIBS/i include_directories(../../include/clang-c)' CMakeLists.txt
-    sed -i -e '/if.ENABLE_SHARED/i target_compile_options (libclang PUBLIC "-fexceptions")' CMakeLists.txt
+    # Enable C++ exception handling for our JNI source files only.
+    # LLVM is built with -fno-exceptions globally, but our JNI code uses
+    # try/catch as a safety net to translate C++ errors into Java exceptions.
+    # Using set_source_files_properties applies -fexceptions only to our files,
+    # avoiding contradictory flags on the same compilation unit.
+    sed -i -e '/if.ENABLE_SHARED/i set_source_files_properties(clang-jni.cpp eu_cqse_clang_ClangBinding.cpp PROPERTIES COMPILE_OPTIONS "-fexceptions")' CMakeLists.txt
+
+    # Add JNI symbols to the linker version script (libclang.map).
+    # On Linux the linker uses this to control symbol visibility.
+    # Without this, Java_* symbols are not exported from libclang.so.
+    echo "" >> libclang.map
+    echo "CQSE_JNI {" >> libclang.map
+    echo "  global:" >> libclang.map
+    grep -o 'Java[^(]*' libclang.exports | sed 's/^/    /; s/$/;/' >> libclang.map
+    echo "};" >> libclang.map
 )
 
 echo "Patching raw_ostream to suppress unwanted output"
 (
-    cd ../llvm-project
-    cat <<EOF | patch -p1
-diff --git a/llvm/lib/Support/raw_ostream.cpp b/llvm/lib/Support/raw_ostream.cpp
-index 2baccaa0cbd..c43ce425fe0 100644
---- a/llvm/lib/Support/raw_ostream.cpp
-+++ b/llvm/lib/Support/raw_ostream.cpp
-@@ -853,7 +853,7 @@ raw_ostream &llvm::outs() {
- raw_ostream &llvm::errs() {
-   // Set standard error to be unbuffered by default.
-   static raw_fd_ostream S(STDERR_FILENO, false, true);
--  return S;
-+  return llvm::nulls();
- }
- 
- /// nulls() - This returns a reference to a raw_ostream which discards output.
-EOF
+    cd ../llvm-project/llvm/lib/Support
+    # In clang 20, errs() returns raw_fd_ostream& so we can't return nulls().
+    # Redirect to /dev/null (or NUL on Windows) using a platform-aware ifdef.
+    # In LLVM 21+, errs() already has a local 'EC' variable (for z/OS auto-conversion),
+    # so we use 'EC_devnull' to avoid a redeclaration error.
+    sed -i 's|static raw_fd_ostream S(STDERR_FILENO, false, true);|std::error_code EC_devnull;\n#ifdef _WIN32\n  static raw_fd_ostream S("NUL", EC_devnull);\n#else\n  static raw_fd_ostream S("/dev/null", EC_devnull);\n#endif|' raw_ostream.cpp
 )
 
-echo "Patching check to get rid of locale dependency of option parsing"
-(
-    cd ../llvm-project
-    cat <<EOF | patch -p1
-index 09409d87020..71c406ec286 100644
---- a/clang-tools-extra/clang-tidy/bugprone/SuspiciousMissingCommaCheck.cpp
-+++ b/clang-tools-extra/clang-tidy/bugprone/SuspiciousMissingCommaCheck.cpp
-@@ -10,6 +10,9 @@
- #include "clang/AST/ASTContext.h"
- #include "clang/ASTMatchers/ASTMatchFinder.h"
- 
-+#include <sstream>
-+#include <locale>
-+
- using namespace clang::ast_matchers;
- 
- namespace clang {
-@@ -67,11 +70,20 @@ AST_MATCHER_P(StringLiteral, isConcatenatedLiteral, unsigned,
- 
- } // namespace
- 
-+// a more robust stod that is indepdent of the locale
-+double robust_stod(const std::string& str) {
-+  double result = 0;
-+  std::istringstream istr(str);
-+  istr.imbue(std::locale("C"));
-+  istr >> result;
-+  return result;
-+}
-+  
- SuspiciousMissingCommaCheck::SuspiciousMissingCommaCheck(
-     StringRef Name, ClangTidyContext *Context)
-     : ClangTidyCheck(Name, Context),
-       SizeThreshold(Options.get("SizeThreshold", 5U)),
--      RatioThreshold(std::stod(Options.get("RatioThreshold", ".2"))),
-+      RatioThreshold(robust_stod(Options.get("RatioThreshold", "0.2"))),
-       MaxConcatenatedTokens(Options.get("MaxConcatenatedTokens", 5U)) {}
- 
- void SuspiciousMissingCommaCheck::storeOptions(
-EOF
-)
-
-PACKAGE=clang-build-package.tar.gz
-echo "Packing for usage on other build machines"
-(
-    cd ..
-    tar czf $PACKAGE clang-jni llvm-project
-)
-
-echo "Package ready at $PACKAGE"
+echo "Preparation complete. Run build-linux.sh next."
 

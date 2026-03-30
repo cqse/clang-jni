@@ -26,9 +26,6 @@ mkdir -p build
 javac -d build -source 1.8 -target 1.8 -cp src:generated `find src generated -name '*.java'`
 (cd libs && cp $NATIVE_LIBS ../build/eu/cqse/clang/)
 
-# also copy check documentation
-cp -r ../llvm-project/clang-tools-extra/docs/clang-tidy/checks build/eu/cqse/clang/doc
-
 jar -cef eu/cqse/clang/Main clang-jni.jar  -C build eu
 
 echo "done"

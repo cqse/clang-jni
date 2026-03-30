@@ -1,145 +1,95 @@
 package eu.cqse.clang;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 /**
- * Simple main program that can be used to test the clang binding on various
- * machines.
+ * JAR entry point for manual testing and debugging only. This class is not used by Teamscale.
+ * Teamscale uses the clang-jni library through its own ClangTranslationUnitWrapper.
+ *
+ * <p>Loads the native library, prints version information, and optionally parses a user-provided
+ * C/C++ file and prints its AST. Useful for verifying the JAR works on a given machine without
+ * needing Teamscale.
+ *
+ * <p>Usage:
+ * <pre>
+ * java -jar clang-jni.jar --enable-native-access=ALL-UNNAMED [file.cpp]
+ * </pre>
+ *
+ * <p>Without arguments, parses a built-in test snippet.
+ * With a file argument, parses that file and prints its AST.
  */
 public class Main {
 
-	private static final String CODE = "" + //
-			"#include \"my-header.h\"\n" + //
-			"#include <stdio.h>\n" + //
-			"\n" + //
-			"int Foo::add (int a, int b) {\n" + //
-			"  for (int i = 0; i < 10; ++i);\n" + //
-			"    printf (\"Hello world\\n\");\n" + //
-			"  return a+b; \n" + //
-			"}\n" + //
-			"\n";
-
-	private static final String HEADER = "" + //
-			"#ifndef MY_HEADER\n" + //
-			"#define MY_HEADER\n" + //
-			"\n" + //
-			"class Foo {\n" + //
-			"public: \n" + //
-			"  int add (int a, int b);\n" + //
-			"};\n" + //
-			"\n" + //
-			"#endif // MY_HEADER\n";
-
 	public static void main(String[] args) throws IOException {
+		System.out.println("Loading clang-jni native library...");
 		ClangJniLoader.ensureLoaded();
-		parseCode();
-		runClangTidy();
+		System.out.println("Loaded successfully.");
+		System.out.println("Clang version: " + Clang.clang_getCString(Clang.clang_getClangVersion()));
+
+		if (args.length > 0) {
+			String filePath = args[0];
+			System.out.println("\nParsing file: " + filePath);
+			String content = new String(Files.readAllBytes(Paths.get(filePath)));
+			parseAndPrintAst(filePath, content);
+		} else {
+			System.out.println("\nParsing a built-in C++ test snippet...");
+			parseAndPrintAst("test.cpp", "int main() { return 0; }");
+		}
 	}
 
-	private static void parseCode() {
-		System.out.println("## Test code parsing");
-
-		CXUnsavedFile codeFile = new CXUnsavedFile();
-		codeFile.setFilename("/foo/code.cpp");
-		codeFile.setContents(CODE);
-		codeFile.setLength(CODE.length());
-
-		CXUnsavedFile headerFile = new CXUnsavedFile();
-		headerFile.setFilename("/foo/my-header.h");
-		headerFile.setContents(HEADER);
-		headerFile.setLength(HEADER.length());
-
-		parseFiles(codeFile, headerFile);
-	}
-
-	/** Parses the first file, all remaining files are referenced headers. */
-	private static void parseFiles(CXUnsavedFile... files) {
+	private static void parseAndPrintAst(String fileName, String content) {
 		SWIGTYPE_p_void index = Clang.clang_createIndex(0, 0);
+		CXUnsavedFile file = new CXUnsavedFile();
+		file.setFilename(fileName);
+		file.setContents(content);
+		file.setLength(content.length());
+
 		try {
-			SWIGTYPE_p_CXTranslationUnitImpl translationUnit = Clang.clang_parseTranslationUnit(index,
-					files[0].getFilename(), null, 0, files, files.length, ClangJNI.CXTranslationUnit_KeepGoing_get());
-			try {
-				CXCursor cursor = Clang.clang_getTranslationUnitCursor(translationUnit);
-				try {
-					ClangBinding.visitChildren(cursor, new PrintVisitor(translationUnit));
-				} finally {
-					cursor.delete();
-				}
-			} finally {
-				Clang.clang_disposeTranslationUnit(translationUnit);
+			SWIGTYPE_p_CXTranslationUnitImpl tu = Clang.clang_parseTranslationUnit(
+					index, fileName, new String[] { "-x", "c++" }, new CXUnsavedFile[] { file }, 1, 0);
+
+			if (tu == null) {
+				System.out.println("Parse FAILED.");
+				return;
 			}
+
+			System.out.println("Parse successful. AST:\n");
+			CXCursor root = Clang.clang_getTranslationUnitCursor(tu);
+			printAst(root, tu, 0);
+			Clang.clang_disposeTranslationUnit(tu);
 		} finally {
+			file.delete();
 			Clang.clang_disposeIndex(index);
 		}
 	}
 
-	private static class PrintVisitor implements IClangCursorVisitor {
-
-		private final SWIGTYPE_p_CXTranslationUnitImpl translationUnit;
-		private final int level;
-
-		public PrintVisitor(SWIGTYPE_p_CXTranslationUnitImpl translationUnit) {
-			this(translationUnit, 0);
-		}
-
-		public PrintVisitor(SWIGTYPE_p_CXTranslationUnitImpl translationUnit, int level) {
-			this.translationUnit = translationUnit;
-			this.level = level;
-		}
-
-		@Override
-		public CXChildVisitResult visit(CXCursor cursor, CXCursor parent) {
-			for (int i = 0; i < level; i++) {
-				System.out.print("    ");
+	private static void printAst(CXCursor cursor, SWIGTYPE_p_CXTranslationUnitImpl tu, int depth) {
+		ClangBinding.visitChildren(cursor, (child, parent) -> {
+			// Only show nodes from the main file, not built-in declarations
+			if (Clang.clang_Location_isFromMainFile(Clang.clang_getCursorLocation(child)) == 0) {
+				return CXChildVisitResult.CXChildVisit_Continue;
 			}
-			print(cursor);
 
-			ClangBinding.visitChildren(cursor, new PrintVisitor(translationUnit, level + 1));
+			for (int i = 0; i < depth; i++) {
+				System.out.print("  ");
+			}
+			String kind = Clang.clang_getCursorKind(child).toString();
+			String spelling = Clang.clang_getCString(Clang.clang_getCursorSpelling(child));
+			String type = Clang.clang_getCString(Clang.clang_getTypeSpelling(Clang.clang_getCursorType(child)));
+
+			System.out.print(kind);
+			if (!spelling.isEmpty()) {
+				System.out.print(" '" + spelling + "'");
+			}
+			if (!type.isEmpty()) {
+				System.out.print(" : " + type);
+			}
+			System.out.println();
+
+			printAst(child, tu, depth + 1);
 			return CXChildVisitResult.CXChildVisit_Continue;
-		}
-
-		public void print(CXCursor current) {
-			CXSourceLocation location = Clang.clang_getCursorLocation(current);
-
-			ClangSpellingLocationProperties locationProperties = ClangBinding.getSpellingLocationProperties(location);
-			long line = locationProperties.getLine();
-			String name = Clang.clang_getCString(Clang.clang_getCursorDisplayName(current));
-			String kind = Clang.clang_getCursorKind(current).toString();
-			String typeKind = Clang.clang_getCursorType(current).getKind().toString();
-			String type = Clang.clang_getCString(Clang.clang_getTypeSpelling(Clang.clang_getCursorType(current)));
-			String spelling = Clang.clang_getCString(Clang.clang_getCursorSpelling(current));
-			CXToken token = Clang.clang_getToken(translationUnit, Clang.clang_getCursorLocation(current));
-			String tokenSpelling = "token is null";
-			if (token != null) {
-				tokenSpelling = Clang.clang_getCString(Clang.clang_getTokenSpelling(translationUnit, token));
-			}
-
-			System.out.println(locationProperties.getFile() + ":" + line + " name:" + name + " kind:" + kind + " type:"
-					+ type + "/" + typeKind + " spelling:" + spelling + " tokenSpelling: " + tokenSpelling);
-		}
-
+		});
 	}
-
-	private static void runClangTidy() {
-		System.out.println("\n## All clang-tidy checks found: ");
-		ClangBinding.getAllClangTidyChecks().stream().map(s -> "  - " + s).forEach(System.out::println);
-
-		System.out.println("\n## All clang-tidy options found: ");
-		ClangBinding.getAllClangTidyCheckOptions()
-				.forEach((key, value) -> System.out.println("  " + key + " -> " + value));
-
-		System.out.println("\n## clang-tidy test run: ");
-		List<ClangTidyFile> files = Arrays.asList(new ClangTidyFile("/virtual/code.cc", CODE),
-				new ClangTidyFile("/virtual/my-header.h", HEADER));
-		List<ClangTidyError> errors = ClangBinding.runClangTidy(files, "*", Collections.emptyList(),
-				ClangBinding.getAllClangTidyCheckOptions(), true);
-		for (ClangTidyError error : errors) {
-			System.out.println(
-					error.getPath() + ":" + error.getOffset() + ":" + error.getCheckName() + ":" + error.getMessage());
-		}
-	}
-
 }
