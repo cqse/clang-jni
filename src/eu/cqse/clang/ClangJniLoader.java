@@ -15,6 +15,14 @@ import java.nio.file.StandardCopyOption;
  */
 public class ClangJniLoader {
 
+	/**
+	 * Version string embedded in the temp directory name so it appears in
+	 * JVM crash logs (hs_err) under the library load events and memory maps.
+	 * Format: llvm<LLVM_VERSION>-swig<SWIG_VERSION>-<BUILD_DATE>
+	 * Update this when rebuilding with a new LLVM, SWIG, or JNI code change.
+	 */
+	public static final String VERSION = "llvm21.1.8-swig4.4.1-20260327";
+
 	private static boolean loaded = false;
 
 	/**
@@ -86,7 +94,7 @@ public class ClangJniLoader {
 
 	private static File createTempDirectory() {
 		String tempDir = System.getProperty("java.io.tmpdir");
-		File generatedDir = new File(tempDir, "clang-jni-" + System.nanoTime());
+		File generatedDir = new File(tempDir, "clang-jni-" + VERSION + "-" + System.nanoTime());
 
 		if (!generatedDir.mkdir()) {
 			throw new RuntimeException("Failed to create temp directory " + generatedDir.getName());

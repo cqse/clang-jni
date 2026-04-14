@@ -1,6 +1,13 @@
 /bin/
-/generated/*
 *~
-libs/*
+*.class
 build
-clang-jni.jar
+
+# Generated code — commit .java and .cpp (.class ignored globally above)
+
+# Native libs — tracked via Git LFS
+libs/*
+!libs/*.so
+!libs/*.dll
+!libs/*.dylib
+!libs/README.md

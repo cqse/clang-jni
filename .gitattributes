@@ -1,0 +1,9 @@
+# Native libraries are committed temporarily during the cross-platform build
+# to transfer them between machines via git. They are removed before the final
+# squash commit (see BUILD.md Step 4). Only the JAR remains in the final
+# history. Rationale: keep LFS storage small — the JAR already contains all
+# three libraries, so keeping them separately would double the storage cost.
+libs/*.dylib filter=lfs diff=lfs merge=lfs -text
+libs/*.so filter=lfs diff=lfs merge=lfs -text
+libs/*.dll filter=lfs diff=lfs merge=lfs -text
+*.jar filter=lfs diff=lfs merge=lfs -text
