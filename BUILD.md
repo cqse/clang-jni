@@ -440,6 +440,31 @@ Without squashing, every build leaves ~350 MB of LFS objects in history
 remains. Over multiple LLVM version updates, this prevents the LFS storage
 from growing out of control.
 
+## Step 5: Publish to the Maven Repository
+
+Upload the JAR **and a matching `.pom` file** to the Maven repository
+under `eu/cqse/clang-jni/<version>/`. Use [`pom-template.xml`](pom-template.xml)
+and replace `VERSION` with the target Maven version.
+
+The POM is required because the Teamscale build's `collectBackendLicenses`
+task reads the `<licenses>` block from it. Without the POM (or with a POM
+missing that block), the Teamscale build fails with
+`License not found for eu.cqse:clang-jni: null`.
+
+Notes:
+- Never overwrite an existing version — bump to `-1`, `-2`, … instead.
+  Nexus caches aggressively, and overwrites can cause stale reads.
+- The Maven `<version>` is independent of `ClangJniLoader.VERSION` (which
+  encodes the LLVM/SWIG versions). You can republish the same JAR under
+  a new Maven version if only POM metadata needs fixing.
+- If Teamscale CI still fails after a correct upload, either:
+  - ask `#dev-infra` to invalidate the Nexus cache entry for
+    `eu/cqse/clang-jni/<version>/`, or
+  - start a manual build pipeline with `--rerun-tasks` in the
+    `GRADLE_EXTRA_ARGS` pipeline variable to bypass the Gradle build
+    cache (which may hold a stale SBOM generated before the POM was
+    uploaded).
+
 ## Troubleshooting
 
 ### Generated code

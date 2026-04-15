@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Template for clang-jni-<VERSION>.pom, uploaded alongside the JAR in the
+    Maven repository. See BUILD.md, section "Publish to the Maven Repository".
+
+    Replace VERSION with the Maven version (e.g. 21.1.8 or 21.1.8-1). This is
+    independent of the LLVM version string in ClangJniLoader.VERSION.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>eu.cqse</groupId>
+    <artifactId>clang-jni</artifactId>
+    <version>VERSION</version>
+    <packaging>jar</packaging>
+
+    <name>Clang JNI</name>
+    <description>JNI bindings for libclang (LLVM VERSION)</description>
+    <url>https://github.com/cqse/clang-jni</url>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <organization>
+        <name>CQSE GmbH</name>
+        <url>https://www.cqse.eu</url>
+    </organization>
+
+    <scm>
+        <url>https://github.com/cqse/clang-jni</url>
+        <connection>scm:git:https://github.com/cqse/clang-jni.git</connection>
+        <developerConnection>scm:git:git@github.com:cqse/clang-jni.git</developerConnection>
+    </scm>
+</project>
